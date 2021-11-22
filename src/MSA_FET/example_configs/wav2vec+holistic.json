@@ -1,0 +1,23 @@
+{
+  "audio": {
+    "tool": "wav2vec",
+    "sample_rate": 16000,
+    "pretrained": "facebook/wav2vec2-base-960h"
+  },
+  "video": {
+    "tool": "mediapipe",
+    "fps": 25,
+    "args": {
+      "holistic": {
+        "model_complexity": 1,
+        "smooth_landmarks": true,
+        "enable_segmentation": true,
+        "smooth_segmentation": true,
+        "min_detection_confidence": 0.5,
+        "min_tracking_confidence": 0.5
+      },
+      "visualize": true,
+      "visualize_dir": "/home/mhs/Projects/MMSA-Feature-Extraction-Tool/tmp/out/"
+    }
+  }
+}

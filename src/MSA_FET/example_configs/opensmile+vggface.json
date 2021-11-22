@@ -1,0 +1,19 @@
+{
+  "audio": {
+    "tool": "opensmile",
+    "sample_rate": 48000,
+    "args": {
+      "feature_set": "ComParE_2016",
+      "feature_level": "Functionals",
+      "start": null,
+      "end": null
+    }
+  },
+  "video": {
+    "tool": "vggface",
+    "fps": 25
+  },
+  "alignment": {
+    "tool": "p2fa"
+  }
+}

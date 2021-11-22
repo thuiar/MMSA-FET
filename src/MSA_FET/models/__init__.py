@@ -1,0 +1,1 @@
+from .senet50_ft_dat import Senet50_ft_dag

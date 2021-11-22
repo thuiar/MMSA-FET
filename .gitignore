@@ -1,0 +1,10 @@
+.vscode
+tmp
+test_files
+test.ipynb
+test.py
+*.egg-info
+dist
+*.pyc
+__pycache__
+pretrained
