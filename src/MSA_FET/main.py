@@ -3,27 +3,20 @@ import logging
 import os
 import os.path as osp
 import pickle
+import time
 from glob import glob
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import torch
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .extractors import *
+from .dataloader import FET_Dataset
+from .extractors import AUDIO_EXTRACTOR_MAP, VIDEO_EXTRACTOR_MAP
 from .utils import *
-
-AUDIO_EXTRACTOR_MAP = {
-    "librosa": librosaExtractor,
-    "opensmile": opensmileExtractor,
-    "wav2vec": wav2vec2Extractor,
-}
-
-VIDEO_EXTRACTOR_MAP = {
-    "mediapipe": mediapipeExtractor,
-    "vggface": vggfaceExtractor,
-    # "3dcnn": 3dcnn_extractor,
-}
 
 # def parse_args():
 #     parser = argparse.ArgumentParser()
@@ -60,14 +53,20 @@ class FeatureExtractionTool(object):
             Log directory path Default: '~/.MSA-FET/log'.
         verbose: 
             Verbose level of stdout. 0 for error, 1 for info, 2 for debug. Default: 1.
+
+    TODOs (in priority order):
+        1. Add support for text feature extraction using transformers.
+        2. Finish vggface feature extraction.
+        3. Support specifying existing feature files, modify only some of the modalities.
+        4. Support more feature extraction methods.
     """
 
     def __init__(
         self,
         config_file,
         dataset_root_dir=None,
-        tmp_dir=osp.join(Path.home(), '.MSA-FET/tmp'),
-        log_dir=osp.join(Path.home(), '.MSA-FET/log'),
+        tmp_dir=osp.join(Path.home(), '.MMSA-FET/tmp'),
+        log_dir=osp.join(Path.home(), '.MMSA-FET/log'),
         verbose=1
     ):
         self.config_file = config_file
@@ -83,7 +82,7 @@ class FeatureExtractionTool(object):
         if not osp.isdir(self.log_dir):
             Path(self.log_dir).mkdir(parents=True, exist_ok=True)
             
-        self.logger = logging.getLogger("MSA-FET")
+        self.logger = logging.getLogger("MMSA-FET")
         if self.verbose == 1:
             self.__set_logger(logging.INFO)
         elif self.verbose == 0:
@@ -94,11 +93,12 @@ class FeatureExtractionTool(object):
             raise ValueError(f"Invalid verbose level '{self.verbose}'.")
         
         self.logger.info("")
-        self.logger.info("========================== MSA-FET Started ==========================")
+        self.logger.info("========================== MMSA-FET Started ==========================")
         self.logger.info(f"Temporary directory: {self.tmp_dir}")
-        self.logger.info(f"Log file is saved at: {osp.join(self.log_dir, 'MSA-FET.log')}")
+        self.logger.info(f"Log file: '{osp.join(self.log_dir, 'MMSA-FET.log')}'")
+        self.logger.info(f"Config file: '{self.config_file}'")
 
-        self.__init_extractors()
+        self.video_extractor, self.audio_extractor, self.text_extractor = None, None, None
         
 
     def __set_logger(self, stream_level):
@@ -118,20 +118,22 @@ class FeatureExtractionTool(object):
 
     
     def __init_extractors(self):
-        self.logger.info(f"Initializing feature extractors with config file '{self.config_file}'.")
-        if 'audio' in self.config:
+        if 'audio' in self.config and self.audio_extractor is None:
+            # self.logger.info(f"Initializing audio feature extractor...")
             audio_cfg = self.config['audio']
             extractor_name = audio_cfg['tool']
             self.audio_extractor = AUDIO_EXTRACTOR_MAP[extractor_name](audio_cfg, self.logger)
-        if 'video' in self.config:
+        if 'video' in self.config and self.video_extractor is None:
+            # self.logger.info(f"Initializing video feature extractor...")
             video_cfg = self.config['video']
             extractor_name = video_cfg['tool']
             self.video_extractor = VIDEO_EXTRACTOR_MAP[extractor_name](video_cfg, self.logger)
+        # TODO: text feature extractor
     
     def __audio_extract_single(self, in_file):
         # extract audio from video file
-        extension = get_codec_name(in_file, 'audio')
-        tmp_audio_file = osp.join(self.tmp_dir, 'tmp_audio.' + extension)
+        # extension = get_codec_name(in_file, 'audio')
+        tmp_audio_file = osp.join(self.tmp_dir, 'tmp_audio.wav')
         ffmpeg_extract(in_file, tmp_audio_file, mode='audio')
         
         # extract audio features
@@ -153,17 +155,97 @@ class FeatureExtractionTool(object):
             os.remove(image_path)
         return video_result
 
-    def __audio_extract_dataset(self, dataset_name):
-        # iterate over dataset
-
+    def __text_extract_single(self, in_file):
+        # TODO
         pass
 
-    def __video_extract_dataset(self, dataset_name):
-        pass
+    def __read_label_file(self, dataset_name, dataset_root_dir, dataset_dir):
+        # Locate and read label.csv file
+        assert dataset_name is not None or dataset_dir is not None, "Either 'dataset_name' or 'dataset_dir' must be specified."
+        if dataset_dir: # Use dataset_dir
+            dataset_dir = osp.normpath(dataset_dir) # normalize path, remove trailing slash so that osp.basename function works correctly
+            dataset_name = osp.basename(dataset_dir)
+            if not osp.exists(dataset_dir):
+                raise RuntimeError(f"Dataset directory '{self.dataset_dir}' does not exist.")
+            if not osp.exists(osp.join(dataset_dir, 'label.csv')):
+                raise RuntimeError(f"Label file '{dataset_dir}/label.csv' does not exist.")
+            label_df = pd.read_csv(
+                osp.join(dataset_dir, 'label.csv'),
+                dtype={'clip_id': str, 'video_id': str, 'text': str}
+            )
+            return label_df, dataset_dir, dataset_name, None
+        else: # Use dataset_name
+            dataset_root_dir = dataset_root_dir if dataset_root_dir is not None else self.dataset_root_dir
+            if dataset_root_dir is None:
+                raise ValueError("Dataset root directory is not specified.")
+            if not osp.exists(dataset_root_dir):
+                raise RuntimeError(f"Dataset root directory '{dataset_root_dir}' does not exist.")
+            try: # Try to locate label.csv according to global dataset config file
+                with open(osp.join(self.dataset_root_dir, 'config.json'), 'r') as f:
+                    dataset_config_all = json.load(f)
+                dataset_config = dataset_config_all[dataset_name]
+                label_file = osp.join(self.dataset_root_dir, dataset_config['label_path'])
+            except: # If failed, try to locate label.csv using joined path
+                label_file = osp.join(dataset_root_dir, dataset_name, 'label.csv')
+            if not osp.exists(label_file):
+                raise RuntimeError(f"Label file '{label_file}' does not exist.")
+            label_df = pd.read_csv(
+                label_file,
+                dtype={'clip_id': str, 'video_id': str, 'text': str}
+            )
+            return label_df, osp.dirname(label_file), dataset_name, dataset_config
+
+    def __padding(self, feature, MAX_LEN, value='zero', location='end'):
+        """
+        Parameters:
+            mode: 
+                zero: padding with 0
+                norm: padding with normal distribution
+            location: start / end
+        """
+        assert value in ['zero', 'norm'], "Padding value must be 'zero' or 'norm'"
+        assert location in ['start', 'end'], "Padding location must be 'start' or 'end'"
+
+        length = feature.shape[0]
+        if length >= MAX_LEN:
+            return feature[:MAX_LEN, :]
+        
+        if value == "zero":
+            pad = np.zeros([MAX_LEN - length, feature.shape[-1]])
+        elif value == "normal":
+            mean, std = feature.mean(), feature.std()
+            pad = np.random.normal(mean, std, (MAX_LEN-length, feature.shape[1]))
+
+        feature = np.concatenate([pad, feature], axis=0) if(location == "start") else \
+                  np.concatenate((feature, pad), axis=0)
+        return feature
+
+    def __paddingSequence(self, sequences):
+        """
+        Pad features to the same length according to the mean length of the features.
+        """
+        feature_dim = sequences[0].shape[-1]
+        lengths = [s.shape[0] for s in sequences]
+        # use (mean + 3 * std) as the max length
+        final_length = int(np.mean(lengths) + 3 * np.std(lengths))
+        final_sequence = np.zeros([len(sequences), final_length, feature_dim])
+        for i, s in enumerate(sequences):
+            if len(s) != 0:
+                final_sequence[i] = self.__padding(s, final_length)
+        return final_sequence
+
+    def __collate_fn(self, batch):
+        res = {k: [] for k in batch[0].keys()}
+        for b in batch:
+            for k, v in b.items():
+                res[k].append(v)
+        return res
 
     def __save_result(self, result, out_file):
         if osp.exists(out_file):
-            raise RuntimeError(f"Output file '{out_file}' already exists.")
+            out_file_alt = osp.splitext(out_file)[0] + '_' + str(int(time.time())) + '.pkl'
+            self.logger.warning(f"Output file '{out_file}' already exists. Saving to '{out_file_alt}' instead.")
+            out_file = out_file_alt
         with open(out_file, 'wb') as f:
             pickle.dump(result, f)
 
@@ -181,6 +263,7 @@ class FeatureExtractionTool(object):
             final_result: dictionary of extracted features.
         """
         try:
+            self.__init_extractors()
             self.logger.info(f"Extracting features from '{in_file}'.")
             final_result = {}
             if 'audio' in self.config:
@@ -203,56 +286,96 @@ class FeatureExtractionTool(object):
         except Exception:
             self.logger.exception("An Error Occured:")
 
-    def run_dataset(self, dataset_name=None, dataset_dir=None, out_file=None):
+    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='pt', num_workers=4, batch_size=64):
         """
         Extract features from dataset and save in MMSA compatible format.
 
         Parameters:
             dataset_name: name of dataset. Either 'dataset_name' or 'dataset_dir' must be specified.
+            dataset_root_dir: root directory of dataset. If specified, will override 'dataset_root_dir' set when initializing MSA-FET.
             dataset_dir: Path to dataset directory. If specified, will override 'dataset_name'. Either 'dataset_name' or 'dataset_dir' must be specified.
-            out_file: output feature file. If not specified, will be saved in the same directory as the dataset using the default name 'feature.pkl'.
+            out_file: output feature file. If not specified, features will be saved under the dataset directory with the name 'feature.pkl'.
+            return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'pt'.
+            num_workers: number of workers for parallel processing. Default: 4.
+            batch_size: batch size for parallel processing. Default: 64.
         """
         try:
-            assert dataset_name is not None or dataset_dir is not None, "Either 'dataset_name' or 'dataset_dir' must be specified."
-            if dataset_dir: # Use dataset_dir
-                self.dataset_dir = osp.normpath(dataset_dir)
-                if not osp.exists(self.dataset_dir):
-                    raise RuntimeError(f"Dataset directory '{self.dataset_dir}' does not exist.")
-                if not osp.exists(osp.join(self.dataset_dir, 'Raw')):
-                    raise RuntimeError(f"Could not find 'Raw' folder in Dataset Directory '{self.dataset_dir}'.")
-                self.logger.info(f"Using dataset directory '{self.dataset_dir}'.")
-                self.dataset_name = osp.basename(self.dataset_dir)
-                files = sorted(glob(osp.join(self.dataset_dir, 'Raw', '*/*')), key=natural_keys)
-                files = [f for f in files if osp.isfile(f)]
-                self.logger.info(f"Found {len(files)} files.")
-                for file in tqdm(files):
-                    pass
-            else: # Use dataset_name
-                if self.dataset_root_dir is None:
-                    raise ValueError("Dataset root directory is not specified.")
-                elif not osp.isdir(self.dataset_root_dir):
-                    raise RuntimeError(f"Dataset root directory '{self.dataset_root_dir}' does not exist.")
-                    
-                self.dataset_name = dataset_name
-                dataset_config_file = osp.join(self.dataset_root_dir, 'config.json')
-                if osp.isfile(dataset_config_file):
-                    with open(dataset_config_file) as f:
-                        dataset_config = json.load(f)
-                    if self.dataset_name in dataset_config:
-                        # TODO: load dataset config
-                        pass
-                    else:
-                        # TODO: locate dataset using dataset_name
-                        pass
-                else:
-                    self.logger.info(f"Dataset config not found. Trying to locate dataset directory...")
-                    # TODO: locate dataset using dataset_name
+            self.label_df, self.dataset_dir, self.dataset_name, self.dataset_config = \
+                self.__read_label_file(dataset_name, dataset_root_dir, dataset_dir)
+            
+            self.logger.info(f"Extracting features from '{self.dataset_name}' dataset.")
+            self.logger.info(f"Dataset directory: '{self.dataset_dir}'")
 
-            self.logger.info(f"Extracting dataset features from '{self.dataset_dir}'.")
-            if 'audio' in self.config:
-                self.__audio_extract_dataset(dataset_name)
-            if 'video' in self.config:
-                self.__video_extract_dataset(dataset_name)
+            data = {
+                "id": [], 
+                "audio": [],
+                "vision": [],
+                "raw_text": [],
+                "text": [],
+                "text_bert": [],
+                "audio_lengths": [],
+                "vision_lengths": [],
+                "annotations": [],
+                "classification_labels": [], 
+                "regression_labels": [],
+                'label_A': [],
+                'label_V': [],
+                'label_T': [],
+                "mode": []
+            }
+
+            dataloader = DataLoader(
+                FET_Dataset(
+                    self.label_df, self.dataset_dir, self.dataset_name,
+                    self.config, self.dataset_config, self.tmp_dir,
+                ),
+                batch_size=batch_size,
+                num_workers=num_workers,
+                shuffle=False,
+                collate_fn=self.__collate_fn
+            )
+            for batch_data in tqdm(dataloader):
+                for k, v in batch_data.items():
+                    data[k].extend(v)
+            # remove unimodal labels if not exist
+            for key in ['label_A', 'label_V', 'label_T']:
+                if np.isnan(np.sum(data[key])):
+                    data.pop(key)
+            # remove empty features
+            for key in ['audio', 'vision', 'text', 'text_bert']:
+                if len(data[key]) == 0:
+                    data.pop(key)
+            # padding features
+            for item in ['audio', 'vision', 'text', 'text_bert']:
+                if item in data:
+                    data[item] = self.__paddingSequence(data[item])
+            # repack features for consistency with MMSA
+            idx_dict = {
+                mode + '_index': [i for i, v in enumerate(data['mode']) if v == mode]
+                for mode in ['train', 'valid', 'test']
+            }
+            data.pop('mode')
+            final_data = {k: {} for k in ['train', 'valid', 'test']}
+            for mode in ['train', 'valid', 'test']:
+                indexes = idx_dict[mode + '_index']
+                for item in data.keys():
+                    if isinstance(data[item], list):
+                        final_data[mode][item] = [data[item][v] for v in indexes]
+                    else:
+                        final_data[mode][item] = data[item][indexes]
+            data = final_data
+            # convert to pytorch tensors
+            if return_type == 'pt':
+                for mode in data.keys():
+                    for key in ['audio', 'vision', 'text', 'text_bert']:
+                        if key in data[mode]:
+                            data[mode][key] = torch.from_numpy(data[mode][key])
+            # save result
+            if out_file is None:
+                out_file = osp.join(self.dataset_dir, 'feature.pkl')
+            self.__save_result(data, out_file)
+            return data
+
         except Exception:
             self.logger.exception("An Error Occured:")
         

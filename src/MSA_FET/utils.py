@@ -43,8 +43,7 @@ def ffmpeg_extract(in_file, out_path, mode='audio', fps=25):
     assert mode in ['audio', 'image'], "Parameter 'mode' must be 'audio' or 'image'."
     
     if mode == 'audio':
-        ffmpeg.input(in_file)\
-            .output(out_path, vcodec='none', acodec='copy')\
+        ffmpeg.input(in_file).output(out_path)\
             .run(overwrite_output=True, quiet=True)
     elif mode == 'image':
         ffmpeg.input(in_file)\
