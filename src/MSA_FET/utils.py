@@ -3,7 +3,6 @@ import os.path as osp
 import urllib.request
 from tqdm import tqdm
 import re
-import json
 
 
 def get_codec_name(file, mode):
