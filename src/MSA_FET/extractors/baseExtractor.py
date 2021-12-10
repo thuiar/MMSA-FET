@@ -30,6 +30,28 @@ class baseAudioExtractor(baseExtractor):
         y, sr = librosa.load(file, sr=self.config['sample_rate'])
         return y, sr
 
+
+class baseTextExtractor(baseExtractor):
+    """
+    Base class for all text extractors.
+    """
+    def __init__(self, config, logger):
+        super().__init__(config, logger)
+
+    def load_text(self, file):
+        """
+        Load text from file.
+        """
+        with open(file, 'r') as f:
+            text = f.read()
+        return text
+
+    def tokenize(self, text):
+        """
+        Tokenize the input text.
+        """
+        raise NotImplementedError("tokenize() not implemented")
+
 # class baseVideoExtractor(baseExtractor):
 #     """
 #     Base class for all video extractors.

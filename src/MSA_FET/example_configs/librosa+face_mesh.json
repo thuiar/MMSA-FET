@@ -25,5 +25,11 @@
       "visualize": false,
       "visualize_dir": "~/.MMSA-FET/visualize"
     }
+  },
+  "text": {
+    "model": "bert",
+    "device": "cpu",
+    "pretrained": "/home/mhs/Projects/MMSA/pretrained_model/bert_cn",
+    "args": {}
   }
 }

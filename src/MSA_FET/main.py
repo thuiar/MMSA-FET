@@ -3,6 +3,7 @@ import logging
 import os
 import os.path as osp
 import pickle
+import shutil
 import time
 from glob import glob
 from logging.handlers import RotatingFileHandler
@@ -15,7 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .dataloader import FET_Dataset
-from .extractors import AUDIO_EXTRACTOR_MAP, VIDEO_EXTRACTOR_MAP
+from .extractors import *
 from .utils import *
 
 # def parse_args():
@@ -128,7 +129,11 @@ class FeatureExtractionTool(object):
             video_cfg = self.config['video']
             extractor_name = video_cfg['tool']
             self.video_extractor = VIDEO_EXTRACTOR_MAP[extractor_name](video_cfg, self.logger)
-        # TODO: text feature extractor
+        if 'text' in self.config and self.text_extractor is None:
+            # self.logger.info(f"Initializing text feature extractor...")
+            text_cfg = self.config['text']
+            extractor_name = text_cfg['model']
+            self.text_extractor = TEXT_EXTRACTOR_MAP[extractor_name](text_cfg, self.logger)
     
     def __audio_extract_single(self, in_file):
         # extract audio from video file
@@ -156,8 +161,10 @@ class FeatureExtractionTool(object):
         return video_result
 
     def __text_extract_single(self, in_file):
-        # TODO
-        pass
+        text = self.text_extractor.load_text(in_file)
+        text_result = self.text_extractor.extract(text)
+        # text_tokens = self.text_extractor.tokenize(text)
+        return text_result
 
     def __read_label_file(self, dataset_name, dataset_root_dir, dataset_dir):
         # Locate and read label.csv file
@@ -249,6 +256,10 @@ class FeatureExtractionTool(object):
         with open(out_file, 'wb') as f:
             pickle.dump(result, f)
 
+    def __remove_tmp_folder(self, tmp_dir):
+        if osp.exists(tmp_dir):
+            shutil.rmtree(tmp_dir)
+
     def run_single(self, in_file, out_file=None, text_file=None, return_type='pt'):
         """
         Extract features from single file.
@@ -256,8 +267,8 @@ class FeatureExtractionTool(object):
         Parameters:
             in_file: path to input video file.
             return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'pt'.
-            out_file (optional): path to output file. Default: None.
-            text_file (optional): path to text file. used for feature alignment. Default: None.
+            out_file (optional): path to output file.
+            text_file (optional): path to text file.
         
         Returns:
             final_result: dictionary of extracted features.
@@ -270,13 +281,19 @@ class FeatureExtractionTool(object):
                 audio_result = self.__audio_extract_single(in_file)
             if 'video' in self.config:
                 video_result = self.__video_extract_single(in_file)
+            if 'text' in self.config:
+                if text_file is None:
+                    raise ValueError("Text file is not specified.")
+                text_result = self.__text_extract_single(text_file)
             # combine audio and video features
             if return_type == 'pt':
                 final_result['audio'] = torch.from_numpy(audio_result)
                 final_result['video'] = torch.from_numpy(video_result)
+                final_result['text'] = torch.from_numpy(text_result)
             elif return_type == 'np':
                 final_result['audio'] = audio_result
                 final_result['video'] = video_result
+                final_result['text'] = text_result
             else:
                 raise ValueError(f"Invalid return type '{return_type}'.")
             # save result
@@ -285,8 +302,10 @@ class FeatureExtractionTool(object):
             return final_result
         except Exception:
             self.logger.exception("An Error Occured:")
+            self.logger.debug("Removing temporary files.")
+            self.__remove_tmp_folder(self.tmp_dir)
 
-    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='pt', num_workers=4, batch_size=64):
+    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=64):
         """
         Extract features from dataset and save in MMSA compatible format.
 
@@ -295,7 +314,7 @@ class FeatureExtractionTool(object):
             dataset_root_dir: root directory of dataset. If specified, will override 'dataset_root_dir' set when initializing MSA-FET.
             dataset_dir: Path to dataset directory. If specified, will override 'dataset_name'. Either 'dataset_name' or 'dataset_dir' must be specified.
             out_file: output feature file. If not specified, features will be saved under the dataset directory with the name 'feature.pkl'.
-            return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'pt'.
+            return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.
             num_workers: number of workers for parallel processing. Default: 4.
             batch_size: batch size for parallel processing. Default: 64.
         """
@@ -318,9 +337,9 @@ class FeatureExtractionTool(object):
                 "annotations": [],
                 "classification_labels": [], 
                 "regression_labels": [],
-                'label_A': [],
-                'label_V': [],
-                'label_T': [],
+                'regression_labels_A': [],
+                'regression_labels_V': [],
+                'regression_labels_T': [],
                 "mode": []
             }
 
@@ -332,13 +351,18 @@ class FeatureExtractionTool(object):
                 batch_size=batch_size,
                 num_workers=num_workers,
                 shuffle=False,
-                collate_fn=self.__collate_fn
+                collate_fn=self.__collate_fn,
+                # multiprocessing_context='spawn'
+                # Using 'spawn' instead of 'fork' lead to more errors
+                # Pytorch dataloader currently does not support cuda multiprocessing
+                # Watch https://github.com/pytorch/pytorch/issues/41292 for updates
+                # Currently only cpu is supported for dataset feature extraction
             )
             for batch_data in tqdm(dataloader):
                 for k, v in batch_data.items():
                     data[k].extend(v)
             # remove unimodal labels if not exist
-            for key in ['label_A', 'label_V', 'label_T']:
+            for key in ['regression_labels_A', 'regression_labels_V', 'regression_labels_T']:
                 if np.isnan(np.sum(data[key])):
                     data.pop(key)
             # remove empty features
@@ -360,10 +384,12 @@ class FeatureExtractionTool(object):
                 indexes = idx_dict[mode + '_index']
                 for item in data.keys():
                     if isinstance(data[item], list):
-                        final_data[mode][item] = [data[item][v] for v in indexes]
+                        final_data[mode][item] = np.array([data[item][v] for v in indexes])
                     else:
                         final_data[mode][item] = data[item][indexes]
             data = final_data
+            # convert labels to numpy array
+
             # convert to pytorch tensors
             if return_type == 'pt':
                 for mode in data.keys():
@@ -378,4 +404,6 @@ class FeatureExtractionTool(object):
 
         except Exception:
             self.logger.exception("An Error Occured:")
+            self.logger.info("Removing temporary files.")
+            self.__remove_tmp_folder(self.tmp_dir)
         

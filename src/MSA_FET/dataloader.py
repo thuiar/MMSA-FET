@@ -6,7 +6,7 @@ import shutil
 
 from torch.utils.data import Dataset
 
-from .extractors import AUDIO_EXTRACTOR_MAP, VIDEO_EXTRACTOR_MAP
+from .extractors import *
 from .utils import ffmpeg_extract
 
 
@@ -53,7 +53,10 @@ class FET_Dataset(Dataset):
             video_cfg = self.config['video']
             extractor_name = video_cfg['tool']
             self.video_extractor = VIDEO_EXTRACTOR_MAP[extractor_name](video_cfg, self.logger)
-        # TODO: text feature extractor
+        if 'text' in self.config:
+            text_cfg = self.config['text']
+            extractor_name = text_cfg['model']
+            self.text_extractor = TEXT_EXTRACTOR_MAP[extractor_name](text_cfg, self.logger)
 
     def __extract_video(self, video_path, video_id):
         # extract images from video
@@ -82,12 +85,14 @@ class FET_Dataset(Dataset):
         return audio_result
 
     def __extract_text(self, text):
-        # TODO
-        pass
+        # extract text features
+        text_result = self.text_extractor.extract(text)
+        return text_result
 
     def __preprocess_text(self, text):
-        # TODO
-        pass
+        # tokenize text, for compatibility with MMSA
+        token_result = self.text_extractor.tokenize(text)
+        return token_result
 
     def __getitem__(self, index):
         video_id, clip_id, text, label, label_T, label_A, label_V, annotation, mode = self.df.iloc[index]
@@ -100,8 +105,8 @@ class FET_Dataset(Dataset):
         feature_A = self.__extract_audio(video_path, cur_id)
         seq_A = feature_A.shape[0]
         # text
-        # feature_T = self.__extract_text()
-        # seq_T = feature_T.shape[0]
+        feature_T = self.__extract_text(text)
+        seq_T = feature_T.shape[0]
         # text_bert = self.__preprocess_text(text)
 
         res = {
@@ -109,16 +114,16 @@ class FET_Dataset(Dataset):
             'audio': feature_A,
             'vision': feature_V,
             'raw_text': text,
-            # 'text': feature_T,
+            'text': feature_T,
             # 'text_bert': text_bert,
             'audio_lengths': seq_A,
             'vision_lengths': seq_V,
             'annotations': annotation,
             'classification_labels': self.annotation_dict[annotation],
             'regression_labels': label,
-            'label_A': label_A,
-            'label_V': label_V,
-            'label_T': label_T,
+            'regression_labels_A': label_A,
+            'regression_labels_V': label_V,
+            'regression_labels_T': label_T,
             'mode': mode
         }
         return res

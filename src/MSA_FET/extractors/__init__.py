@@ -3,6 +3,9 @@ from .audio.opensmile import opensmileExtractor
 from .audio.wave2vec import wav2vec2Extractor
 from .video.mediapipe import mediapipeExtractor
 from .video.vggface import vggfaceExtractor
+from .text.bert import bertExtractor
+
+__all__ = ['AUDIO_EXTRACTOR_MAP', 'VIDEO_EXTRACTOR_MAP', 'TEXT_EXTRACTOR_MAP']
 
 AUDIO_EXTRACTOR_MAP = {
     "librosa": librosaExtractor,
@@ -12,6 +15,12 @@ AUDIO_EXTRACTOR_MAP = {
 
 VIDEO_EXTRACTOR_MAP = {
     "mediapipe": mediapipeExtractor,
-    "vggface": vggfaceExtractor,
+    # "openface2": openface2Extractor,
+    # "vggface": vggfaceExtractor,
     # "3dcnn": 3dcnn_extractor,
+}
+
+TEXT_EXTRACTOR_MAP = {
+    "bert": bertExtractor,
+    # "xlnet": xlnetExtractor,
 }
