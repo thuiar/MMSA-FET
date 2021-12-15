@@ -97,27 +97,15 @@ class FET_Dataset(Dataset):
     def __getitem__(self, index):
         video_id, clip_id, text, label, label_T, label_A, label_V, annotation, mode = self.df.iloc[index]
         cur_id = video_id + '_' + clip_id
-        # video
-        video_path = osp.join(self.dataset_dir, 'Raw', video_id, clip_id + '.mp4')
-        feature_V = self.__extract_video(video_path, cur_id)
-        seq_V = feature_V.shape[0]
-        # audio
-        feature_A = self.__extract_audio(video_path, cur_id)
-        seq_A = feature_A.shape[0]
-        # text
-        feature_T = self.__extract_text(text)
-        seq_T = feature_T.shape[0]
-        # text_bert = self.__preprocess_text(text)
-
         res = {
             'id': cur_id,
-            'audio': feature_A,
-            'vision': feature_V,
+            # 'audio': feature_A,
+            # 'vision': feature_V,
             'raw_text': text,
-            'text': feature_T,
+            # 'text': feature_T,
             # 'text_bert': text_bert,
-            'audio_lengths': seq_A,
-            'vision_lengths': seq_V,
+            # 'audio_lengths': seq_A,
+            # 'vision_lengths': seq_V,
             'annotations': annotation,
             'classification_labels': self.annotation_dict[annotation],
             'regression_labels': label,
@@ -126,4 +114,25 @@ class FET_Dataset(Dataset):
             'regression_labels_T': label_T,
             'mode': mode
         }
+        # video
+        video_path = osp.join(self.dataset_dir, 'Raw', video_id, clip_id + '.mp4')
+        if 'video' in self.config:
+            feature_V = self.__extract_video(video_path, cur_id)
+            seq_V = feature_V.shape[0]
+            res['vision'] = feature_V
+            res['vision_lengths'] = seq_V
+        # audio
+        if 'audio' in self.config:
+            feature_A = self.__extract_audio(video_path, cur_id)
+            seq_A = feature_A.shape[0]
+            res['audio'] = feature_A
+            res['audio_lengths'] = seq_A
+        # text
+        if 'text' in self.config:
+            feature_T = self.__extract_text(text)
+            seq_T = feature_T.shape[0]
+            # text_bert = self.__preprocess_text(text)
+            res['text'] = feature_T
+            # res['text_bert'] = text_bert
+
         return res

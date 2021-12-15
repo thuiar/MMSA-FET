@@ -292,13 +292,19 @@ class FeatureExtractionTool(object):
                 text_result = self.__text_extract_single(text_file)
             # combine audio and video features
             if return_type == 'pt':
-                final_result['audio'] = torch.from_numpy(audio_result)
-                final_result['video'] = torch.from_numpy(video_result)
-                final_result['text'] = torch.from_numpy(text_result)
+                if 'audio' in self.config:
+                    final_result['audio'] = torch.from_numpy(audio_result)
+                if 'video' in self.config:
+                    final_result['video'] = torch.from_numpy(video_result)
+                if 'text' in self.config:
+                    final_result['text'] = torch.from_numpy(text_result)
             elif return_type == 'np':
-                final_result['audio'] = audio_result
-                final_result['video'] = video_result
-                final_result['text'] = text_result
+                if 'audio' in self.config:
+                    final_result['audio'] = audio_result
+                if 'video' in self.config:
+                    final_result['video'] = video_result
+                if 'text' in self.config:
+                    final_result['text'] = text_result
             else:
                 raise ValueError(f"Invalid return type '{return_type}'.")
             # save result
