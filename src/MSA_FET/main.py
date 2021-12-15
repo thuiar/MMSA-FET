@@ -44,8 +44,8 @@ class FeatureExtractionTool(object):
     Feature Extraction Tool for Multimodal Sentiment Analysis tasks.
 
     Parameters:
-        config_file: 
-            Path to config file.
+        config: 
+            Python dictionary or path to a JSON file.
         dataset_root_dir: 
             Path to dataset root directory. Required when extracting dataset features.
         tmp_dir: 
@@ -64,15 +64,19 @@ class FeatureExtractionTool(object):
 
     def __init__(
         self,
-        config_file,
+        config,
         dataset_root_dir=None,
         tmp_dir=osp.join(Path.home(), '.MMSA-FET/tmp'),
         log_dir=osp.join(Path.home(), '.MMSA-FET/log'),
         verbose=1
     ):
-        self.config_file = config_file
-        with open(self.config_file, 'r') as f:
-            self.config = json.load(f)
+        if type(config) == dict:
+            self.config = config
+        elif type(config) == str:
+            with open(config, 'r') as f:
+                self.config = json.load(f)
+        else:
+            raise ValueError("Invalid config type.")
         self.tmp_dir = tmp_dir
         self.log_dir = log_dir
         self.dataset_root_dir = dataset_root_dir
@@ -97,7 +101,8 @@ class FeatureExtractionTool(object):
         self.logger.info("========================== MMSA-FET Started ==========================")
         self.logger.info(f"Temporary directory: {self.tmp_dir}")
         self.logger.info(f"Log file: '{osp.join(self.log_dir, 'MMSA-FET.log')}'")
-        self.logger.info(f"Config file: '{self.config_file}'")
+        # self.logger.info(f"Config file: '{self.config_file}'")
+        self.logger.info(f"Config: {self.config}")
 
         self.video_extractor, self.audio_extractor, self.text_extractor = None, None, None
         
