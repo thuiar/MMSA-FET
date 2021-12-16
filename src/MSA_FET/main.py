@@ -377,7 +377,7 @@ class FeatureExtractionTool(object):
                 if np.isnan(np.sum(data[key])):
                     data.pop(key)
             # remove empty features
-            for key in ['audio', 'vision', 'text', 'text_bert']:
+            for key in ['audio', 'vision', 'text', 'text_bert', 'audio_lengths', 'vision_lengths']:
                 if len(data[key]) == 0:
                     data.pop(key)
             # padding features
