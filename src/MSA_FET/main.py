@@ -318,7 +318,7 @@ class FeatureExtractionTool(object):
             self.logger.debug("Removing temporary files.")
             self.__remove_tmp_folder(self.tmp_dir)
 
-    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=64, progress_q=None):
+    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=64, progress_q=None, task_id=None):
         """
         Extract features from dataset and save in MMSA compatible format.
 
@@ -330,7 +330,8 @@ class FeatureExtractionTool(object):
             return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.
             num_workers: number of workers for parallel processing. Default: 4.
             batch_size: batch size for parallel processing. Default: 64.
-            progress_q: multiprocessing queue for progress reporting.
+            progress_q: multiprocessing queue for progress reporting with M-SENA.
+            task_id: task id for M-SENA.
         """
         try:
             self.label_df, self.dataset_dir, self.dataset_name, self.dataset_config = \
@@ -340,8 +341,8 @@ class FeatureExtractionTool(object):
             self.logger.info(f"Dataset directory: '{self.dataset_dir}'")
 
             self.report = None
-            if type(progress_q) == multiprocessing.queues.Queue:
-                self.report = {'msg': 'Preparing', 'processed': 0, 'total': 0}
+            if type(progress_q) == multiprocessing.queues.Queue and task_id is not None:
+                self.report = {'task_id': task_id, 'msg': 'Preparing', 'processed': 0, 'total': 0}
                 progress_q.put(self.report)
 
             data = {
@@ -435,9 +436,17 @@ class FeatureExtractionTool(object):
                 self.report['msg'] = 'Finished'
                 progress_q.put(self.report)
             return data
-
+        except KeyboardInterrupt:
+            self.logger.info("User aborted feature extraction!")
+            self.__remove_tmp_folder(self.tmp_dir)
+            if self.report is not None:
+                self.report['msg'] = 'Terminated'
+                progress_q.put(self.report)
         except Exception:
             self.logger.exception("An Error Occured:")
             self.logger.info("Removing temporary files.")
             self.__remove_tmp_folder(self.tmp_dir)
+            if self.report is not None:
+                self.report['msg'] = 'Error'
+                progress_q.put(self.report)
         
