@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import os.path as osp
+import multiprocessing
 import pickle
 import shutil
 import time
@@ -260,6 +261,7 @@ class FeatureExtractionTool(object):
             out_file = out_file_alt
         with open(out_file, 'wb') as f:
             pickle.dump(result, f)
+        self.logger.info(f"Feature file saved: '{out_file}'.")
 
     def __remove_tmp_folder(self, tmp_dir):
         if osp.exists(tmp_dir):
@@ -316,7 +318,7 @@ class FeatureExtractionTool(object):
             self.logger.debug("Removing temporary files.")
             self.__remove_tmp_folder(self.tmp_dir)
 
-    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=64):
+    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=64, progress_q=None):
         """
         Extract features from dataset and save in MMSA compatible format.
 
@@ -328,6 +330,7 @@ class FeatureExtractionTool(object):
             return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.
             num_workers: number of workers for parallel processing. Default: 4.
             batch_size: batch size for parallel processing. Default: 64.
+            progress_q: multiprocessing queue for progress reporting.
         """
         try:
             self.label_df, self.dataset_dir, self.dataset_name, self.dataset_config = \
@@ -335,6 +338,11 @@ class FeatureExtractionTool(object):
             
             self.logger.info(f"Extracting features from '{self.dataset_name}' dataset.")
             self.logger.info(f"Dataset directory: '{self.dataset_dir}'")
+
+            self.report = None
+            if type(progress_q) == multiprocessing.queues.Queue:
+                self.report = {'msg': 'Preparing', 'processed': 0, 'total': 0}
+                progress_q.put(self.report)
 
             data = {
                 "id": [], 
@@ -369,9 +377,20 @@ class FeatureExtractionTool(object):
                 # Watch https://github.com/pytorch/pytorch/issues/41292 for updates
                 # Currently only cpu is supported for dataset feature extraction
             )
-            for batch_data in tqdm(dataloader):
+            if self.report is not None:
+                self.report['msg'] = 'Extracting'
+                self.report['total'] = len(dataloader)
+                progress_q.put(self.report)
+            for i, batch_data in enumerate(tqdm(dataloader)):
                 for k, v in batch_data.items():
                     data[k].extend(v)
+                if self.report is not None:
+                    self.report['processed'] = i
+                    progress_q.put(self.report)
+            if self.report is not None:
+                self.report['msg'] = 'Finalizing'
+                progress_q.put(self.report)
+            
             # remove unimodal labels if not exist
             for key in ['regression_labels_A', 'regression_labels_V', 'regression_labels_T']:
                 if np.isnan(np.sum(data[key])):
@@ -411,6 +430,10 @@ class FeatureExtractionTool(object):
             if out_file is None:
                 out_file = osp.join(self.dataset_dir, 'feature.pkl')
             self.__save_result(data, out_file)
+            self.logger.info(f"Feature extraction complete!")
+            if self.report is not None:
+                self.report['msg'] = 'Finished'
+                progress_q.put(self.report)
             return data
 
         except Exception:
