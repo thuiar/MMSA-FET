@@ -39,7 +39,7 @@ class opensmileExtractor(baseAudioExtractor):
                 start = self.args['start'],
                 end = self.args['end']
             )
-            audio_result = self.extractor.to_numpy(audio_result)
+            audio_result = self.extractor.to_numpy(audio_result).reshape((1, -1))
             return audio_result
         except Exception as e:
             self.logger.error(f"Failed to extract audio features with openSMILE from {file}")

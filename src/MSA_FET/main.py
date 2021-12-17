@@ -313,10 +313,11 @@ class FeatureExtractionTool(object):
             if out_file:
                 self.__save_result(final_result, out_file)
             return final_result
-        except Exception:
+        except Exception as e:
             self.logger.exception("An Error Occured:")
             self.logger.debug("Removing temporary files.")
             self.__remove_tmp_folder(self.tmp_dir)
+            raise e
 
     def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=64, progress_q=None, task_id=None):
         """
@@ -386,7 +387,7 @@ class FeatureExtractionTool(object):
                 for k, v in batch_data.items():
                     data[k].extend(v)
                 if self.report is not None:
-                    self.report['processed'] = i
+                    self.report['processed'] = i + 1
                     progress_q.put(self.report)
             if self.report is not None:
                 self.report['msg'] = 'Finalizing'
@@ -442,11 +443,12 @@ class FeatureExtractionTool(object):
             if self.report is not None:
                 self.report['msg'] = 'Terminated'
                 progress_q.put(self.report)
-        except Exception:
+        except Exception as e:
             self.logger.exception("An Error Occured:")
             self.logger.info("Removing temporary files.")
             self.__remove_tmp_folder(self.tmp_dir)
             if self.report is not None:
                 self.report['msg'] = 'Error'
                 progress_q.put(self.report)
+            raise e
         
