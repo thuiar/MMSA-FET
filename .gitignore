@@ -1,10 +1,11 @@
 .vscode
 tmp
-test_files
 test.ipynb
-test.py
+test*.py
+tests
 *.egg-info
 dist
 *.pyc
 __pycache__
 pretrained
+cen_patches_*_of.dat

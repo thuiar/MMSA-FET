@@ -1,0 +1,15 @@
+{
+  "video": {
+    "tool": "mediapipe",
+    "fps": 25,
+    "args": {
+      "face_mesh": {
+        "refine_landmarks": true,
+        "min_detection_confidence": 0.35,
+        "min_tracking_confidence": 0.5
+      },
+      "visualize": false,
+      "visualize_dir": "~/.MMSA-FET/visualize"
+    }
+  }
+}

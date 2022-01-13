@@ -1,0 +1,8 @@
+{
+  "text": {
+    "model": "bert",
+    "device": "cpu",
+    "pretrained": "bert-base-uncased",
+    "args": {}
+  }
+}

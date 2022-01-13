@@ -1,0 +1,16 @@
+{
+  "audio": {
+    "tool": "librosa",
+    "sample_rate": null,
+    "args": {
+      "mfcc": {
+        "n_mfcc": 20,
+        "htk": true
+      },
+      "rms": {},
+      "zero_crossing_rate": {},
+      "spectral_rolloff": {},
+      "spectral_centroid": {}
+    }
+  }
+}

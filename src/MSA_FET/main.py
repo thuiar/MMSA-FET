@@ -1,8 +1,9 @@
+import argparse
 import json
 import logging
+import multiprocessing
 import os
 import os.path as osp
-import multiprocessing
 import pickle
 import shutil
 import time
@@ -20,24 +21,26 @@ from .dataloader import FET_Dataset
 from .extractors import *
 from .utils import *
 
-# def parse_args():
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('-d', '--dataset-mode', action='store_true',
-#                         help="Switch to dataset mode if specified.")
-#     parser.add_argument('-i', '--input-file', type=str, required=True,
-#                         help="Path to input file, or dataset name in dataset mode.")
-#     parser.add_argument('-t', '--text-file', type=str, required=False,
-#                         help="Path to text file, will be ignored in dataset mode. \
-#                              If omitted, speech recognition api will be used to generate text.")
-#     parser.add_argument('-c', '--config-file', type=str, required=True,
-#                         help="Path to config file.")
-#     parser.add_argument('-o', '--output-file', type=str, required=True,
-#                         help="Path to output pkl file.")
-#     parser.add_argument('-v', '--verbose', action='store_true',
-#                         help="Print more information to stdout.")
-#     parser.add_argument('-q', '--quiet', action='store_true',
-#                         help="Print only errors to stdout.")
-#     return parser.parse_args()
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input', type=str, required=True,
+                        help="Input video file in file mode, or dataset root directory in dataset mode.")
+    parser.add_argument('-d', '--dataset-mode', action='store_true',
+                        help="Switch from file mode to dataset mode if specified.")
+    parser.add_argument('-c', '--config-file', type=str, required=True,
+                        help="Path to config file.")
+    parser.add_argument('-o', '--output', type=str, required=True,
+                        help="Path to output pkl file.")
+    parser.add_argument('-t', '--text-file', type=str, required=False,
+                        help="File containing transcriptions of the video in file mode.")
+    parser.add_argument('-n', '--num-workers', type=int, default=4,
+                        help="Number of workers for data loading in dataset mode.")
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help="Print more information to stdout.")
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help="Print only errors to stdout.")
+    return parser.parse_args()
 
 
 class FeatureExtractionTool(object):
@@ -160,7 +163,7 @@ class FeatureExtractionTool(object):
 
         # extract video features
         name = 'video_' + Path(in_file).stem
-        video_result = self.video_extractor.extract(self.tmp_dir, name)
+        video_result = self.video_extractor.extract(self.tmp_dir, name, tool_output=self.verbose>0)
         # delete tmp images
         for image_path in glob(osp.join(self.tmp_dir, '*.bmp')):
             os.remove(image_path)
@@ -259,6 +262,7 @@ class FeatureExtractionTool(object):
             out_file_alt = osp.splitext(out_file)[0] + '_' + str(int(time.time())) + '.pkl'
             self.logger.warning(f"Output file '{out_file}' already exists. Saving to '{out_file_alt}' instead.")
             out_file = out_file_alt
+        Path(out_file).parent.mkdir(parents=True, exist_ok=True)
         with open(out_file, 'wb') as f:
             pickle.dump(result, f)
         self.logger.info(f"Feature file saved: '{out_file}'.")
@@ -267,13 +271,13 @@ class FeatureExtractionTool(object):
         if osp.exists(tmp_dir):
             shutil.rmtree(tmp_dir)
 
-    def run_single(self, in_file, out_file=None, text_file=None, return_type='pt'):
+    def run_single(self, in_file, out_file=None, text_file=None, return_type='np'):
         """
         Extract features from single file.
 
         Parameters:
             in_file: path to input video file.
-            return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'pt'.
+            return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.
             out_file (optional): path to output file.
             text_file (optional): path to text file.
         
@@ -319,7 +323,7 @@ class FeatureExtractionTool(object):
             self.__remove_tmp_folder(self.tmp_dir)
             raise e
 
-    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=64, progress_q=None, task_id=None):
+    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=32, progress_q=None, task_id=None):
         """
         Extract features from dataset and save in MMSA compatible format.
 
@@ -380,7 +384,7 @@ class FeatureExtractionTool(object):
                 # Currently only cpu is supported for dataset feature extraction
             )
             if self.report is not None:
-                self.report['msg'] = 'Extracting'
+                self.report['msg'] = 'Processing'
                 self.report['total'] = len(dataloader)
                 progress_q.put(self.report)
             for i, batch_data in enumerate(tqdm(dataloader)):
@@ -452,3 +456,26 @@ class FeatureExtractionTool(object):
                 progress_q.put(self.report)
             raise e
         
+
+if __name__ == '__main__':
+    args = parse_args()
+
+    verbose = 1
+    if args.verbose:
+        verbose = 2
+    if args.quiet:
+        verbose = 0
+    
+    fet = FeatureExtractionTool(config=args.config_file, verbose=verbose)
+    if args.dataset_mode:
+        fet.run_dataset(
+            dataset_dir=args.input,
+            out_file=args.output,
+            num_workers=args.num_workers
+        )
+    else:
+        fet.run_single(
+            in_file=args.input,
+            out_file=args.output,
+            text_file=args.text_file
+        )

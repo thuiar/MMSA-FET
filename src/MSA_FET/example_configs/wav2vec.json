@@ -1,0 +1,7 @@
+{
+  "audio": {
+    "tool": "wav2vec",
+    "sample_rate": 16000,
+    "pretrained": "facebook/wav2vec2-base-960h"
+  }
+}
