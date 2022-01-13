@@ -77,8 +77,17 @@ class FeatureExtractionTool(object):
         if type(config) == dict:
             self.config = config
         elif type(config) == str:
-            with open(config, 'r') as f:
-                self.config = json.load(f)
+            if osp.isfile(config):
+                with open(config, 'r') as f:
+                    self.config = json.load(f)
+            elif osp.isfile(name := osp.join(osp.abspath(__file__), 'example_configs', config + '.json')):
+                with open(name, 'r') as f:
+                    self.config = json.load(f)
+            elif osp.isfile(name := osp.join(osp.abspath(__file__), 'example_configs', config)):
+                with open(name, 'r') as f:
+                    self.config = json.load(f)
+            else:
+                raise ValueError(f"Config file {config} does not exist.")
         else:
             raise ValueError("Invalid config type.")
         self.tmp_dir = tmp_dir

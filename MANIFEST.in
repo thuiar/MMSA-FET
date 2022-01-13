@@ -1,4 +1,5 @@
 recursive-include src/MSA_FET/exts *
-recursive-exclude src/MSA_FET/exts/pretrained *
+recursive-include src/MSA_FET/example_configs *.json
 
+recursive-exclude src/MSA_FET/exts/pretrained *
 recursive-exclude src/MSA_FET/exts/OpenFace/model/patch_experts *.dat
