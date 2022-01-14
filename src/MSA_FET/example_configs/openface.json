@@ -2,6 +2,7 @@
   "video": {
     "tool": "openface",
     "fps": 25,
+    "average_over": 3,
     "args": {
       "hogalign": false,
       "simalign": false,
@@ -12,8 +13,7 @@
       "head_pose": true,
       "action_units": true,
       "gaze": true,
-      "tracked": false,
-      "average_over": 3
+      "tracked": false
     }
   }
 }

@@ -18,6 +18,8 @@ class openfaceExtractor(baseExtractor):
         try:
             logger.info("Initializing OpenFace video feature extractor...")
             super().__init__(config, logger)
+            self.pool_size = self.config['average_over']
+            assert self.pool_size > 0, "Pool size must be greater than 0."
             self.args = self._parse_args(self.config['args'])
             # self.cur_dir = os.getcwd()
             self.tool_dir = Path(__file__).parent.parent.parent / "exts" / "OpenFace"
@@ -28,8 +30,6 @@ class openfaceExtractor(baseExtractor):
             raise e
 
     def _parse_args(self, args):
-        self.pool_size = self.config['args']['average_over']
-        assert self.pool_size > 0, "Pool size must be greater than 0."
         # res = ['0'] # the first arg is reserved according to openface FeatureExtraction.exe
         res = []
         if 'hogalign' in args and args['hogalign']:
