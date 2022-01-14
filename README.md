@@ -1,5 +1,7 @@
 # MMSA-Feature Extraction Toolkit
 
+[![](https://badgen.net/badge/license/GPL-3.0/green)](#License) [![](https://badgen.net/github/release/FlameSky-S/M-SENA-frontend)](https://github.com/FlameSky-S/M-SENA-frontend/releases) [![](https://badgen.net/badge/contact/THUIAR/purple)](https://thuiar.github.io/)
+
 MMSA-Feature Extraction Toolkit extracts multimodal features for Multimodal Sentiment Analysis Datasets. It integrates several commonly used tools for visual, acoustic and text modality. The extracted features are compatible with the [MMSA](https://github.com/thuiar/MMSA) Framework and thus can be used directly. The tool can also extract features for single videos.
 
 ## 1. Installation
