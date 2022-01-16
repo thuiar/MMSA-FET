@@ -91,7 +91,7 @@ For customized features, you'll have to provide a config file which is in the fo
   "text": {
     "model": "bert",
     "device": "cpu",
-    "pretrained": "models/bert_base_uncased",
+    "pretrained": "bert-base-uncased",
     "args": {}
   }
 }
