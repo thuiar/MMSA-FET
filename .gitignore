@@ -9,3 +9,4 @@ dist
 __pycache__
 pretrained
 cen_patches_*_of.dat
+tmp.csv

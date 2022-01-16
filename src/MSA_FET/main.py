@@ -51,11 +51,11 @@ class FeatureExtractionTool(object):
         config: 
             Python dictionary or path to a JSON file.
         dataset_root_dir: 
-            Path to dataset root directory. Required when extracting dataset features.
+            Path to dataset root directory. Used when extracting dataset features.
         tmp_dir: 
             Temporary directory path. Default: '~/.MSA-FET/tmp'.
         log_dir: 
-            Log directory path Default: '~/.MSA-FET/log'.
+            Log directory path. Default: '~/.MSA-FET/log'.
         verbose: 
             Verbose level of stdout. 0 for error, 1 for info, 2 for debug. Default: 1.
 
@@ -80,10 +80,10 @@ class FeatureExtractionTool(object):
             if osp.isfile(config):
                 with open(config, 'r') as f:
                     self.config = json.load(f)
-            elif osp.isfile(name := osp.join(osp.abspath(__file__), 'example_configs', config + '.json')):
+            elif osp.isfile(name := osp.join(osp.dirname(__file__), 'example_configs', config + '.json')):
                 with open(name, 'r') as f:
                     self.config = json.load(f)
-            elif osp.isfile(name := osp.join(osp.abspath(__file__), 'example_configs', config)):
+            elif osp.isfile(name := osp.join(osp.dirname(__file__), 'example_configs', config)):
                 with open(name, 'r') as f:
                     self.config = json.load(f)
             else:
@@ -343,7 +343,7 @@ class FeatureExtractionTool(object):
             out_file: output feature file. If not specified, features will be saved under the dataset directory with the name 'feature.pkl'.
             return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.
             num_workers: number of workers for parallel processing. Default: 4.
-            batch_size: batch size for parallel processing. Default: 64.
+            batch_size: batch size for parallel processing. Default: 32.
             progress_q: multiprocessing queue for progress reporting with M-SENA.
             task_id: task id for M-SENA.
         """

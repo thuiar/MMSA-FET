@@ -1,6 +1,5 @@
 import os
-# import time
-# from ctypes import *
+import platform
 from pathlib import Path
 
 import numpy as np
@@ -21,16 +20,20 @@ class openfaceExtractor(baseExtractor):
             self.pool_size = self.config['average_over']
             assert self.pool_size > 0, "Pool size must be greater than 0."
             self.args = self._parse_args(self.config['args'])
-            # self.cur_dir = os.getcwd()
             self.tool_dir = Path(__file__).parent.parent.parent / "exts" / "OpenFace"
-            # self.libpath = self.tool_dir / "libOpenFaceExtractor.so"
-            # self.c_module = cdll.LoadLibrary(self.libpath)
+            if platform.system() == 'Windows':
+                self.tool = self.tool_dir / "FeatureExtraction.exe"
+            elif platform.system() == 'Linux':
+                self.tool = self.tool_dir / "FeatureExtraction"
+            else:
+                raise RuntimeError("Cannot Determine OS type.")
+            if not self.tool.is_file():
+                raise FileNotFoundError("OpenFace tool not found.")
         except Exception as e:
             self.logger.error("Failed to initialize mediapipeExtractor.")
             raise e
 
     def _parse_args(self, args):
-        # res = ['0'] # the first arg is reserved according to openface FeatureExtraction.exe
         res = []
         if 'hogalign' in args and args['hogalign']:
             res.append('-hogalign')
@@ -72,28 +75,8 @@ class openfaceExtractor(baseExtractor):
             args.extend(['-fdir', img_dir, '-out_dir', img_dir])
             if not tool_output:
                 args.append('-quiet')
-            cmd = str(self.tool_dir) + "/FeatureExtraction " + " ".join(args)
-            # start = time.time()
+            cmd = str(self.tool) + " " + " ".join(args)
             os.system(cmd)
-            # end = time.time()
-            # print("time used: ", end - start)
-
-            # n_args = len(args)
-            # arg_type = (c_char_p * n_args)
-            # arg_array = arg_type()
-            # for i, v in enumerate(args):
-            #     arg_array[i] = v.encode('utf-8')
-            # self.c_module.extract.argtypes = [c_int, arg_type]
-
-            # os.chdir(self.tool_dir)
-            # start = time.time()
-            # return_status = self.c_module.extract(n_args, arg_array)
-            # end = time.time()
-            # print("time used: ", end - start)
-            # os.chdir(self.cur_dir)
-
-            # if return_status:
-            #     raise RuntimeError("C library call failed.")
 
             name = Path(img_dir).stem
             df = pd.read_csv(Path(img_dir) / (str(name) + '.csv'))
