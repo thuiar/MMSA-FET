@@ -18,7 +18,7 @@ $ pip install MMSA-FET
 
 MMSA-FET is fairly easy to use. Below is a basic example on how to extract features for a single video file and a dataset folder.
 
-> **Note:** The dataset folder should be arranged the same way as the MMSA Framework does, see [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Arranged datasets can be downloaded [here](https://pan.baidu.com/s/1oksuDEkkd3vGg2oBMBxiVw) with code `ctgs`
+> **Note:** To extract features for datasets, a `label.csv` file is needed . See [Label File for Datasets](https://github.com/FlameSky-S/MMSA-FET/wiki/Label-File-for-Datasets) for details. CSV files for MOSI, MOSEI and CH-SIMS can be downloaded [here]() with code ``.
 
 ```python
 from MSA_FET import FeatureExtractionTool
