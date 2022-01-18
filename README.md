@@ -1,6 +1,9 @@
 # MMSA-Feature Extraction Toolkit
 
-[![](https://badgen.net/badge/license/GPL-3.0/green)](#License) [![](https://badgen.net/github/release/FlameSky-S/MMSA-FET)](https://github.com/FlameSky-S/M-SENA-frontend/releases) [![](https://badgen.net/badge/contact/THUIAR/purple)](https://thuiar.github.io/)
+[![](https://badgen.net/badge/license/GPL-3.0/green)](#License) 
+[![](https://badgen.net/pypi/v/MMSA-FET)](https://pypi.org/project/MMSA-FET/) 
+![](https://badgen.net/pypi/python/MMSA-FET/)
+[![](https://badgen.net/badge/contact/THUIAR/purple)](https://thuiar.github.io/)
 
 MMSA-Feature Extraction Toolkit extracts multimodal features for Multimodal Sentiment Analysis Datasets. It integrates several commonly used tools for visual, acoustic and text modality. The extracted features are compatible with the [MMSA](https://github.com/thuiar/MMSA) Framework and thus can be used directly. The tool can also extract features for single videos.
 
@@ -12,19 +15,22 @@ MMSA-Feature Extraction Toolkit is available from Pypi:
 $ pip install MMSA-FET
 ```
 
-For the OpenFaceExtractor to work, a few system-wide dependancies are needed. See [Dependency Installation](https://github.com/FlameSky-S/MMSA-FET/wiki/Dependency-Installation) for more information.
+> **Note:** For the OpenFaceExtractor to work, a few system-wide dependancies are needed. See [Dependency Installation](https://github.com/FlameSky-S/MMSA-FET/wiki/Dependency-Installation) for more information.
 
 ## 2. Quick Start
 
 MMSA-FET is fairly easy to use. Below is a basic example on how to extract features for a single video file and a dataset folder.
 
-> **Note:** The dataset folder should be arranged the same way as the MMSA Framework does, see [Dataset Folder Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-Folder-Structure) for details. Arranged datasets can be downloaded [here](https://pan.baidu.com/s/1oksuDEkkd3vGg2oBMBxiVw) with code `ctgs`
+> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded [here]() with code ``.
 
 ```python
 from MSA_FET import FeatureExtractionTool
 
-# initialize with config file
-fet = FeatureExtractionTool("config.json")
+# initialize with default librosa config which only extracts audio features
+fet = FeatureExtractionTool("librosa")
+
+# alternatively initialize with a custom config file
+fet = FeatureExtractionTool("custom_config.json")
 
 # extract features for single video
 feature = fet.run_single("input.mp4")
@@ -34,9 +40,9 @@ print(feature)
 feature = fet.run_dataset(dataset_dir="~/MOSI", out_file="output/feature.pkl")
 ```
 
-The `config.json` is the path to a custom config file, the format of which is introduced [here](#3-Config-File).
+The `custom_config.json` is the path to a custom config file, the format of which is introduced below.
 
-For more details, please read [APIs](https://github.com/FlameSky-S/MMSA-FET/wiki/APIs).
+For detailed usage, please read [APIs](https://github.com/FlameSky-S/MMSA-FET/wiki/APIs).
 
 ## 3. Config File
 
@@ -53,7 +59,9 @@ fet = FeatureExtractionTool(config="bert")
 fet = FeatureExtractionTool(config="xlnet")
 ```
 
-For customized features, you'll have to provide a config file which is in the following format.
+For customized features, you'll have to provide a config file which is in the following format. 
+
+The below example extracts features of all three modalities. To extract unimodal features, just remove unnecessary sections from the file.
 
 ```json
 {
