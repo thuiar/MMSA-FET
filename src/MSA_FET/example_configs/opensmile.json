@@ -3,7 +3,7 @@
     "tool": "opensmile",
     "sample_rate": 16000,
     "args": {
-      "feature_set": "eGeMAPS",
+      "feature_set": "eGeMAPSv02",
       "feature_level": "Functionals",
       "start": null,
       "end": null

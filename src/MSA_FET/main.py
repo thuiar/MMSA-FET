@@ -1,4 +1,3 @@
-import argparse
 import json
 import logging
 import multiprocessing
@@ -22,26 +21,6 @@ from .extractors import *
 from .utils import *
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=str, required=True,
-                        help="Input video file in file mode, or dataset root directory in dataset mode.")
-    parser.add_argument('-d', '--dataset-mode', action='store_true',
-                        help="Switch from file mode to dataset mode if specified.")
-    parser.add_argument('-c', '--config-file', type=str, required=True,
-                        help="Path to config file.")
-    parser.add_argument('-o', '--output', type=str, required=True,
-                        help="Path to output pkl file.")
-    parser.add_argument('-t', '--text-file', type=str, required=False,
-                        help="File containing transcriptions of the video in file mode.")
-    parser.add_argument('-n', '--num-workers', type=int, default=4,
-                        help="Number of workers for data loading in dataset mode.")
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help="Print more information to stdout.")
-    parser.add_argument('-q', '--quiet', action='store_true',
-                        help="Print only errors to stdout.")
-    return parser.parse_args()
-
 
 class FeatureExtractionTool(object):
     """
@@ -60,8 +39,8 @@ class FeatureExtractionTool(object):
             Verbose level of stdout. 0 for error, 1 for info, 2 for debug. Default: 1.
 
     TODOs (in priority order):
-        1. Add support for text feature extraction using transformers.
-        2. Finish vggface feature extraction.
+        1. Add csv/dataframe output format.
+        2. Add support for xlnet.
         3. Support specifying existing feature files, modify only some of the modalities.
         4. Support more feature extraction methods.
     """
@@ -464,27 +443,4 @@ class FeatureExtractionTool(object):
                 self.report['msg'] = 'Error'
                 progress_q.put(self.report)
             raise e
-        
 
-if __name__ == '__main__':
-    args = parse_args()
-
-    verbose = 1
-    if args.verbose:
-        verbose = 2
-    if args.quiet:
-        verbose = 0
-    
-    fet = FeatureExtractionTool(config=args.config_file, verbose=verbose)
-    if args.dataset_mode:
-        fet.run_dataset(
-            dataset_dir=args.input,
-            out_file=args.output,
-            num_workers=args.num_workers
-        )
-    else:
-        fet.run_single(
-            in_file=args.input,
-            out_file=args.output,
-            text_file=args.text_file
-        )

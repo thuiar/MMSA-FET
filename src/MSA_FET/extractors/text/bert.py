@@ -18,7 +18,7 @@ class bertExtractor(baseTextExtractor):
             self.model = BertModel.from_pretrained(self.config['pretrained']).to(self.config['device'])
             self.finetune = self.config['finetune'] if 'finetune' in self.config else False
         except Exception as e:
-            logger.error("Failed to initialize librosaExtractor.")
+            logger.error("Failed to initialize bertExtractor.")
             raise e
     
     def extract(self, text):

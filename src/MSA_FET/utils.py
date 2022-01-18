@@ -1,8 +1,26 @@
+import json
 import ffmpeg
 import os.path as osp
 import urllib.request
 from tqdm import tqdm
 import re
+from pathlib import Path
+
+
+def get_default_config(tool_name: str) -> dict:
+    """
+    Get default configuration for a tool.
+
+    Args:
+        tool_name: name of the tool.
+
+    Returns:
+        Python dictionary containing the config.
+    """
+    path = Path(__file__).parent / "example_configs" / f"{tool_name}.json"
+    with open(path, 'r') as f:
+        res = json.load(f)
+    return res
 
 
 def get_codec_name(file, mode):
