@@ -131,7 +131,7 @@ class FET_Dataset(Dataset):
         if 'text' in self.config:
             feature_T = self.__extract_text(text)
             seq_T = feature_T.shape[0]
-            # text_bert = self.__preprocess_text(text)
+            # text_bert = self.__preprocess_text(text) # TODO
             res['text'] = feature_T
             # res['text_bert'] = text_bert
 

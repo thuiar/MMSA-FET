@@ -38,7 +38,7 @@ class FeatureExtractionTool(object):
         verbose: 
             Verbose level of stdout. 0 for error, 1 for info, 2 for debug. Default: 1.
 
-    TODOs (in priority order):
+    TODOs:
         1. Add csv/dataframe output format.
         2. Support specifying existing feature files, modify only some of the modalities.
     """
@@ -367,6 +367,7 @@ class FeatureExtractionTool(object):
                 # Pytorch dataloader currently does not support cuda multiprocessing
                 # Watch https://github.com/pytorch/pytorch/issues/41292 for updates
                 # Currently only cpu is supported for dataset feature extraction
+                # TODO: try use numworkers=0 for gpu
             )
             if self.report is not None:
                 self.report['msg'] = 'Processing'

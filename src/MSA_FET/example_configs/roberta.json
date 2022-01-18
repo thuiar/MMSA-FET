@@ -1,0 +1,8 @@
+{
+  "text": {
+    "model": "roberta",
+    "device": "cpu",
+    "pretrained": "cardiffnlp/twitter-roberta-base-sentiment",
+    "args": {}
+  }
+}
