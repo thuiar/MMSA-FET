@@ -42,7 +42,7 @@ feature = fet.run_dataset(dataset_dir="~/MOSI", out_file="output/feature.pkl")
 
 The `custom_config.json` is the path to a custom config file, the format of which is introduced below.
 
-For detailed usage, please read [APIs](https://github.com/FlameSky-S/MMSA-FET/wiki/APIs).
+For detailed usage, please read [APIs](https://github.com/FlameSky-S/MMSA-FET/wiki/APIs) and [Command Line Arguments](https://github.com/FlameSky-S/MMSA-FET/wiki/Command-Line-Arguments).
 
 ## 3. Config File
 
