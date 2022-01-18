@@ -40,9 +40,7 @@ class FeatureExtractionTool(object):
 
     TODOs (in priority order):
         1. Add csv/dataframe output format.
-        2. Add support for xlnet.
-        3. Support specifying existing feature files, modify only some of the modalities.
-        4. Support more feature extraction methods.
+        2. Support specifying existing feature files, modify only some of the modalities.
     """
 
     def __init__(
@@ -114,7 +112,6 @@ class FeatureExtractionTool(object):
         ch.setFormatter(ch_formatter)
         self.logger.addHandler(ch)
 
-    
     def __init_extractors(self):
         if 'audio' in self.config and self.audio_extractor is None:
             # self.logger.info(f"Initializing audio feature extractor...")
