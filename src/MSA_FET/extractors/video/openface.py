@@ -17,8 +17,12 @@ class openfaceExtractor(baseExtractor):
         try:
             logger.info("Initializing OpenFace video feature extractor...")
             super().__init__(config, logger)
-            self.pool_size = self.config['average_over']
-            assert self.pool_size > 0, "Pool size must be greater than 0."
+            if self.config['average_over'] < 1:
+                self.pool_size = 1
+                logger.warning("'average_over' is less than 1, set to 1.")
+            else:
+                self.pool_size = self.config['average_over']
+                
             self.args = self._parse_args(self.config['args'])
             self.tool_dir = Path(__file__).parent.parent.parent / "exts" / "OpenFace"
             if platform.system() == 'Windows':
