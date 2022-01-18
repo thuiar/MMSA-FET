@@ -56,12 +56,31 @@ fet = FeatureExtractionTool(config="wav2vec")
 fet = FeatureExtractionTool(config="openface")
 fet = FeatureExtractionTool(config="mediapipe")
 fet = FeatureExtractionTool(config="bert")
-fet = FeatureExtractionTool(config="xlnet")
+fet = FeatureExtractionTool(config="roberta")
 ```
 
-For customized features, you'll have to provide a config file which is in the following format. 
+For customized features, you can: 
 
-The below example extracts features of all three modalities. To extract unimodal features, just remove unnecessary sections from the file.
+1. Edit the default configs and pass a dictionary to the config parameter like the example below:
+
+```python
+from MSA_FET import FeatureExtractionTool, get_default_config
+
+# here we only extract audio and video features
+config_a = get_default_config('opensmile')
+config_v = get_default_config('openface')
+
+# modify default config
+config_a['audio']['args']['feature_level'] = 'LowLevelDescriptors'
+
+# combine audio and video configs
+config = {**config_a, **config_v}
+
+# initialize
+fet = FeatureExtractionTool(config=config)
+```
+
+3. Provide a config json file. The below example extracts features of all three modalities. To extract unimodal features, just remove unnecessary sections from the file.
 
 ```json
 {
