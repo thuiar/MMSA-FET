@@ -196,7 +196,7 @@ class FeatureExtractionTool(object):
             )
             return label_df, osp.dirname(label_file), dataset_name, dataset_config
 
-    def __padding(self, feature, MAX_LEN, value='zero', location='end'):
+    def __padding(self, feature, MAX_LEN, value='zero', location='start'):
         """
         Parameters:
             mode: 
@@ -217,7 +217,7 @@ class FeatureExtractionTool(object):
             mean, std = feature.mean(), feature.std()
             pad = np.random.normal(mean, std, (MAX_LEN-length, feature.shape[1]))
 
-        feature = np.concatenate([pad, feature], axis=0) if(location == "start") else \
+        feature = np.concatenate((pad, feature), axis=0) if(location == "start") else \
                   np.concatenate((feature, pad), axis=0)
         return feature
 
@@ -395,7 +395,10 @@ class FeatureExtractionTool(object):
             for item in ['audio', 'vision', 'text', 'text_bert']:
                 if item in data:
                     data[item] = self.__paddingSequence(data[item])
-            # repack features for consistency with MMSA
+            # transpose text_bert
+            if 'text_bert' in data:
+                data['text_bert'] = data['text_bert'].transpose(0, 2, 1)
+            # repack features
             idx_dict = {
                 mode + '_index': [i for i, v in enumerate(data['mode']) if v == mode]
                 for mode in ['train', 'valid', 'test']

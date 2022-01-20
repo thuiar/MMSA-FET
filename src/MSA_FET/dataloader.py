@@ -1,9 +1,10 @@
+import logging
 import os
 import os.path as osp
-from glob import glob
-import logging
 import shutil
+from glob import glob
 
+import numpy as np
 from torch.utils.data import Dataset
 
 from .extractors import *
@@ -90,7 +91,7 @@ class FET_Dataset(Dataset):
         return text_result
 
     def __preprocess_text(self, text):
-        # tokenize text, for compatibility with MMSA
+        # tokenize text, for models that use bert
         token_result = self.text_extractor.tokenize(text)
         return token_result
 
@@ -131,8 +132,8 @@ class FET_Dataset(Dataset):
         if 'text' in self.config:
             feature_T = self.__extract_text(text)
             seq_T = feature_T.shape[0]
-            # text_bert = self.__preprocess_text(text) # TODO
+            text_bert = self.__preprocess_text(text)
             res['text'] = feature_T
-            # res['text_bert'] = text_bert
+            res['text_bert'] = text_bert
 
         return res
