@@ -97,7 +97,7 @@ class FET_Dataset(Dataset):
 
     def __getitem__(self, index):
         video_id, clip_id, text, label, label_T, label_A, label_V, annotation, mode = self.df.iloc[index]
-        cur_id = video_id + '_' + clip_id
+        cur_id = video_id + '$_$' + clip_id
         res = {
             'id': cur_id,
             # 'audio': feature_A,

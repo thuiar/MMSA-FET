@@ -367,7 +367,6 @@ class FeatureExtractionTool(object):
                 # Pytorch dataloader currently does not support cuda multiprocessing
                 # Watch https://github.com/pytorch/pytorch/issues/41292 for updates
                 # Currently only cpu is supported for dataset feature extraction
-                # TODO: try use numworkers=0 for gpu
             )
             if self.report is not None:
                 self.report['msg'] = 'Processing'

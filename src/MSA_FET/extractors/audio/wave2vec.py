@@ -1,4 +1,5 @@
-from transformers import Wav2Vec2FeatureExtractor
+import torch
+from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2Model
 from ..baseExtractor import baseAudioExtractor
 
 
@@ -11,7 +12,8 @@ class wav2vec2Extractor(baseAudioExtractor):
         try:
             logger.info("Initializing Wav2Vec2 audio feature extractor.")
             super().__init__(config, logger)
-            self.extractor = Wav2Vec2FeatureExtractor.from_pretrained(config['pretrained'])
+            self.preprocessor = Wav2Vec2FeatureExtractor.from_pretrained(config['pretrained'])
+            self.extractor = Wav2Vec2Model.from_pretrained(config['pretrained'])
         except Exception as e:
             self.logger.error("Failed to initialize Wav2VecExtractor.")
             raise e
@@ -29,7 +31,9 @@ class wav2vec2Extractor(baseAudioExtractor):
         """
         try:
             y, sr = self.load_audio(file)
-            audio_result = self.extractor(y, sampling_rate=sr, return_tensors="np").input_values.T
+            audio_result = self.preprocessor(y, sampling_rate=sr, return_tensors="pt").input_values
+            with torch.no_grad():
+                audio_result = self.extractor(audio_result).last_hidden_state.squeeze(0)
             return audio_result
         except Exception as e:
             self.logger.error(f"Failed to extract audio features with Wav2Vec2 from {file}.")
