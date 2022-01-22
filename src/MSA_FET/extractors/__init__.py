@@ -5,6 +5,7 @@ from .video.mediapipe import mediapipeExtractor
 from .video.openface import openfaceExtractor
 from .text.bert import bertExtractor
 from .text.roberta import robertaExtractor
+from .text.glove import gloveExtractor
 
 __all__ = ['AUDIO_EXTRACTOR_MAP', 'VIDEO_EXTRACTOR_MAP', 'TEXT_EXTRACTOR_MAP']
 
@@ -23,4 +24,5 @@ VIDEO_EXTRACTOR_MAP = {
 TEXT_EXTRACTOR_MAP = {
     "bert": bertExtractor,
     "roberta": robertaExtractor,
+    "glove": gloveExtractor,
 }

@@ -135,5 +135,7 @@ class FET_Dataset(Dataset):
             text_bert = self.__preprocess_text(text)
             res['text'] = feature_T
             res['text_bert'] = text_bert
+            if res['text_bert'] == None:
+                res.pop('text_bert')
 
         return res

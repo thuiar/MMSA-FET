@@ -1,0 +1,6 @@
+{
+  "text": {
+    "model": "glove",
+    "embedding_file": "/home/sharing/disk1/pretrained_embedding/glove/glove.6B.300d.txt"
+  }
+}
