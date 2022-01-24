@@ -45,8 +45,8 @@ class openfaceExtractor(baseExtractor):
             res.append('-simalign')
         if 'nobadaligned' in args and args['nobadaligned']:
             res.append('-nobadaligned')
-        if 'track' in args and args['track']:
-            res.append('-track')
+        if 'tracked' in args and args['tracked']:
+            res.append('-tracked')
         if 'pdmparams' in args and args['pdmparams']:
             res.append('-pdmparams')
         if 'landmark_2D' in args and args['landmark_2D']:
