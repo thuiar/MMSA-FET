@@ -323,6 +323,7 @@ class FeatureExtractionTool(object):
             progress_q: multiprocessing queue for progress reporting with M-SENA.
             task_id: task id for M-SENA.
         """
+        # TODO: add database operation for M-SENA
         try:
             self.label_df, self.dataset_dir, self.dataset_name, self.dataset_config = \
                 self.__read_label_file(dataset_name, dataset_root_dir, dataset_dir)

@@ -1,0 +1,35 @@
+{
+  "text": {
+    "model": "bert",
+    "device": "cpu",
+    "pretrained": "bert-base-uncased",
+    "args": {}
+  },
+  "audio": {
+    "tool": "opensmile",
+    "sample_rate": 16000,
+    "args": {
+      "feature_set": "eGeMAPSv02",
+      "feature_level": "LowLevelDescriptors",
+      "start": null,
+      "end": null
+    }
+  },
+  "video": {
+    "tool": "openface",
+    "fps": 10,
+    "average_over": 1,
+    "args": {
+      "hogalign": false,
+      "simalign": false,
+      "nobadaligned": false,
+      "landmark_2D": true,
+      "landmark_3D": false,
+      "pdmparams": false,
+      "head_pose": true,
+      "action_units": true,
+      "gaze": true,
+      "tracked": false
+    }
+  }
+}
