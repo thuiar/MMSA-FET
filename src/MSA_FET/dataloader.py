@@ -98,6 +98,7 @@ class FET_Dataset(Dataset):
     def __getitem__(self, index):
         video_id, clip_id, text, label, label_T, label_A, label_V, annotation, mode = self.df.iloc[index]
         cur_id = video_id + '$_$' + clip_id
+        tmp_id = video_id + '_' + clip_id
         res = {
             'id': cur_id,
             # 'audio': feature_A,
@@ -108,7 +109,7 @@ class FET_Dataset(Dataset):
             # 'audio_lengths': seq_A,
             # 'vision_lengths': seq_V,
             'annotations': annotation,
-            'classification_labels': self.annotation_dict[annotation],
+            'classification_labels': np.nan if np.isnan(annotation) else self.annotation_dict[annotation],
             'regression_labels': label,
             'regression_labels_A': label_A,
             'regression_labels_V': label_V,
@@ -118,13 +119,13 @@ class FET_Dataset(Dataset):
         # video
         video_path = osp.join(self.dataset_dir, 'Raw', video_id, clip_id + '.mp4')
         if 'video' in self.config:
-            feature_V = self.__extract_video(video_path, cur_id)
+            feature_V = self.__extract_video(video_path, tmp_id)
             seq_V = feature_V.shape[0]
             res['vision'] = feature_V
             res['vision_lengths'] = seq_V
         # audio
         if 'audio' in self.config:
-            feature_A = self.__extract_audio(video_path, cur_id)
+            feature_A = self.__extract_audio(video_path, tmp_id)
             seq_A = feature_A.shape[0]
             res['audio'] = feature_A
             res['audio_lengths'] = seq_A
@@ -135,7 +136,7 @@ class FET_Dataset(Dataset):
             text_bert = self.__preprocess_text(text)
             res['text'] = feature_T
             res['text_bert'] = text_bert
-            if res['text_bert'] == None:
+            if type(res['text_bert']) != np.ndarray:
                 res.pop('text_bert')
 
         return res

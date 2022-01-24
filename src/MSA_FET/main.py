@@ -129,7 +129,7 @@ class FeatureExtractionTool(object):
             extractor_name = text_cfg['model']
             self.text_extractor = TEXT_EXTRACTOR_MAP[extractor_name](text_cfg, self.logger)
     
-    def __audio_extract_single(self, in_file):
+    def __audio_extract_single(self, in_file, keep_tmp_file=False):
         # extract audio from video file
         # extension = get_codec_name(in_file, 'audio')
         tmp_audio_file = osp.join(self.tmp_dir, 'tmp_audio.wav')
@@ -138,10 +138,11 @@ class FeatureExtractionTool(object):
         # extract audio features
         audio_result = self.audio_extractor.extract(tmp_audio_file)
         # delete tmp audio file
-        os.remove(tmp_audio_file)
+        if not keep_tmp_file:
+            os.remove(tmp_audio_file)
         return audio_result
 
-    def __video_extract_single(self, in_file):
+    def __video_extract_single(self, in_file, keep_tmp_file=False):
         # extract images from video
         fps = self.config['video']['fps']
         ffmpeg_extract(in_file, self.tmp_dir, mode='image', fps=fps)
@@ -150,8 +151,9 @@ class FeatureExtractionTool(object):
         name = 'video_' + Path(in_file).stem
         video_result = self.video_extractor.extract(self.tmp_dir, name, tool_output=self.verbose>0)
         # delete tmp images
-        for image_path in glob(osp.join(self.tmp_dir, '*.bmp')):
-            os.remove(image_path)
+        if not keep_tmp_file:
+            for image_path in glob(osp.join(self.tmp_dir, '*.bmp')):
+                os.remove(image_path)
         return video_result
 
     def __text_extract_single(self, in_file):
@@ -274,7 +276,7 @@ class FeatureExtractionTool(object):
             self.logger.info(f"Extracting features from '{in_file}'.")
             final_result = {}
             if 'audio' in self.config:
-                audio_result = self.__audio_extract_single(in_file)
+                audio_result = self.__audio_extract_single(in_file, keep_tmp_file=True)
             if 'video' in self.config:
                 video_result = self.__video_extract_single(in_file)
             if 'text' in self.config:
