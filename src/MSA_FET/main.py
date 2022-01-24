@@ -348,7 +348,7 @@ class FeatureExtractionTool(object):
                 "audio_lengths": [],
                 "vision_lengths": [],
                 "annotations": [],
-                "classification_labels": [], 
+                # "classification_labels": [],  # no longer supported by MMSA
                 "regression_labels": [],
                 'regression_labels_A': [],
                 'regression_labels_V': [],

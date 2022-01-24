@@ -109,7 +109,7 @@ class FET_Dataset(Dataset):
             # 'audio_lengths': seq_A,
             # 'vision_lengths': seq_V,
             'annotations': annotation,
-            'classification_labels': np.nan if np.isnan(annotation) else self.annotation_dict[annotation],
+            # 'classification_labels': np.nan if np.isnan(annotation) else self.annotation_dict[annotation],
             'regression_labels': label,
             'regression_labels_A': label_A,
             'regression_labels_V': label_V,
