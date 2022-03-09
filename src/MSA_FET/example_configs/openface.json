@@ -1,7 +1,15 @@
 {
   "video": {
     "tool": "openface",
-    "fps": 10,
+    "fps": 25,
+    "multiFace": {
+      "enable": false,
+      "facedetScale": 0.25,
+      "minTrack": 10,
+      "numFailedDet": 10,
+      "minFaceSize": 1,
+      "cropScale": 0.4
+    },
     "average_over": 1,
     "args": {
       "hogalign": false,
@@ -10,7 +18,7 @@
       "landmark_2D": true,
       "landmark_3D": false,
       "pdmparams": false,
-      "head_pose": false,
+      "head_pose": true,
       "action_units": true,
       "gaze": false,
       "tracked": false

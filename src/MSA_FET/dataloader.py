@@ -1,12 +1,13 @@
+from glob import glob
 import logging
 import os
 import os.path as osp
 import shutil
-from glob import glob
 
 import numpy as np
 from torch.utils.data import Dataset
 
+from .ASD import run_ASD
 from .extractors import *
 from .utils import ffmpeg_extract
 
@@ -24,6 +25,7 @@ class FET_Dataset(Dataset):
         config,
         dataset_config, 
         tmp_dir,
+        ignore_error=True
     ):
         self.df = df
         self.dataset_dir = dataset_dir
@@ -31,6 +33,7 @@ class FET_Dataset(Dataset):
         self.config = config
         self.dataset_config = dataset_config
         self.tmp_dir = tmp_dir
+        self.ignore_error = ignore_error
         self.annotation_dict = {
             'Negative': -1,
             'Neutral': 0,
@@ -64,7 +67,16 @@ class FET_Dataset(Dataset):
         fps = self.config['video']['fps']
         out_path = osp.join(self.tmp_dir, video_id)
         os.makedirs(out_path, exist_ok=False)
-        ffmpeg_extract(video_path, out_path, mode='image', fps=fps)
+
+        if 'multiFace' in self.config['video'] and self.config['video']['multiFace']['enable'] == True:
+            # enable Active Speaker Detection
+            run_ASD(video_path, out_path, fps, self.config['video']['multiFace'])
+            if len(glob(osp.join(out_path, '*.jpg'))) == 0:
+                self.logger.warning(f'ASD returned empty results for video {video_id}')
+                shutil.rmtree(out_path)
+                return np.zeros((1,1))
+        else:
+            ffmpeg_extract(video_path, out_path, mode='image', fps=fps)
 
         # extract video features
         video_result = self.video_extractor.extract(out_path, video_id)
@@ -96,7 +108,10 @@ class FET_Dataset(Dataset):
         return token_result
 
     def __getitem__(self, index):
-        video_id, clip_id, text, label, label_T, label_A, label_V, annotation, mode = self.df.iloc[index]
+        video_id, clip_id, text, label, label_T, label_A, label_V, annotation, mode = \
+            self.df.iloc[index]['video_id'], self.df.iloc[index]['clip_id'], self.df.iloc[index]['text'], \
+            self.df.iloc[index]['label'], self.df.iloc[index]['label_T'], self.df.iloc[index]['label_A'], \
+            self.df.iloc[index]['label_V'], self.df.iloc[index]['annotation'], self.df.iloc[index]['mode']
         cur_id = video_id + '$_$' + clip_id
         tmp_id = video_id + '_' + clip_id
         res = {
@@ -118,25 +133,33 @@ class FET_Dataset(Dataset):
         }
         # video
         video_path = osp.join(self.dataset_dir, 'Raw', video_id, clip_id + '.mp4')
-        if 'video' in self.config:
-            feature_V = self.__extract_video(video_path, tmp_id)
-            seq_V = feature_V.shape[0]
-            res['vision'] = feature_V
-            res['vision_lengths'] = seq_V
-        # audio
-        if 'audio' in self.config:
-            feature_A = self.__extract_audio(video_path, tmp_id)
-            seq_A = feature_A.shape[0]
-            res['audio'] = feature_A
-            res['audio_lengths'] = seq_A
-        # text
-        if 'text' in self.config:
-            feature_T = self.__extract_text(text)
-            seq_T = feature_T.shape[0]
-            text_bert = self.__preprocess_text(text)
-            res['text'] = feature_T
-            res['text_bert'] = text_bert
-            if type(res['text_bert']) != np.ndarray:
-                res.pop('text_bert')
-
-        return res
+        try:
+            if 'video' in self.config:
+                feature_V = self.__extract_video(video_path, tmp_id)
+                seq_V = feature_V.shape[0]
+                res['vision'] = feature_V
+                res['vision_lengths'] = seq_V
+            # audio
+            if 'audio' in self.config:
+                feature_A = self.__extract_audio(video_path, tmp_id)
+                seq_A = feature_A.shape[0]
+                res['audio'] = feature_A
+                res['audio_lengths'] = seq_A
+            # text
+            if 'text' in self.config:
+                feature_T = self.__extract_text(text)
+                seq_T = feature_T.shape[0]
+                text_bert = self.__preprocess_text(text)
+                res['text'] = feature_T
+                res['text_bert'] = text_bert
+                if type(res['text_bert']) != np.ndarray:
+                    res.pop('text_bert')
+            return res
+        except Exception as e:
+            self.logger.error(f'Error occurred when extracting features for video {video_id} clip {clip_id}')
+            if self.ignore_error:
+                self.logger.warning(f'Ignore error and continue')
+                return None
+            else:
+                raise e
+        

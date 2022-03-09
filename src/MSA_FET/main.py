@@ -16,10 +16,10 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from .ASD import run_ASD
 from .dataloader import FET_Dataset
 from .extractors import *
 from .utils import *
-
 
 
 class FeatureExtractionTool(object):
@@ -145,7 +145,11 @@ class FeatureExtractionTool(object):
     def __video_extract_single(self, in_file, keep_tmp_file=False):
         # extract images from video
         fps = self.config['video']['fps']
-        ffmpeg_extract(in_file, self.tmp_dir, mode='image', fps=fps)
+        if 'multiFace' in self.config['video'] and self.config['video']['multiFace']['enable'] == True:
+            # enable Active Speaker Detection
+            run_ASD(in_file, self.tmp_dir, fps, self.config['video']['multiFace'])
+        else:
+            ffmpeg_extract(in_file, self.tmp_dir, mode='image', fps=fps)
 
         # extract video features
         name = 'video_' + Path(in_file).stem
@@ -153,6 +157,8 @@ class FeatureExtractionTool(object):
         # delete tmp images
         if not keep_tmp_file:
             for image_path in glob(osp.join(self.tmp_dir, '*.bmp')):
+                os.remove(image_path)
+            for image_path in glob(osp.join(self.tmp_dir, '*.jpg')):
                 os.remove(image_path)
         return video_result
 
@@ -198,7 +204,7 @@ class FeatureExtractionTool(object):
             )
             return label_df, osp.dirname(label_file), dataset_name, dataset_config
 
-    def __padding(self, feature, MAX_LEN, value='zero', location='start'):
+    def __padding(self, feature, MAX_LEN, value='zero', location='end'):
         """
         Parameters:
             mode: 
@@ -235,11 +241,19 @@ class FeatureExtractionTool(object):
         for i, s in enumerate(sequences):
             if len(s) != 0:
                 final_sequence[i] = self.__padding(s, final_length)
-        return final_sequence
+        return final_sequence, final_length
 
     def __collate_fn(self, batch):
-        res = {k: [] for k in batch[0].keys()}
+        res = None
+        for b in batch: # need to iterate through batch in case the first sample is bad(None)
+            if b is not None:
+                res = {k: [] for k in batch[0].keys()} # initialize res
+                break
+        if res is None: # if all samples in this batch are bad(None), return None
+            return None
         for b in batch:
+            if b is None: # if one sample is bad(None), skip it
+                continue
             for k, v in b.items():
                 res[k].append(v)
         return res
@@ -310,7 +324,7 @@ class FeatureExtractionTool(object):
             self.__remove_tmp_folder(self.tmp_dir)
             raise e
 
-    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=32, progress_q=None, task_id=None):
+    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=32, skip_bad_data=True, progress_q=None, task_id=None):
         """
         Extract features from dataset and save in MMSA compatible format.
 
@@ -322,6 +336,7 @@ class FeatureExtractionTool(object):
             return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.
             num_workers: number of workers for parallel processing. Default: 4.
             batch_size: batch size for parallel processing. Default: 32.
+            skip_bad_data: skip bad data when loading dataset. Default: True.
             progress_q: multiprocessing queue for progress reporting with M-SENA.
             task_id: task id for M-SENA.
         """
@@ -359,7 +374,7 @@ class FeatureExtractionTool(object):
             dataloader = DataLoader(
                 FET_Dataset(
                     self.label_df, self.dataset_dir, self.dataset_name,
-                    self.config, self.dataset_config, self.tmp_dir,
+                    self.config, self.dataset_config, self.tmp_dir, ignore_error=skip_bad_data
                 ),
                 batch_size=batch_size,
                 num_workers=num_workers,
@@ -376,6 +391,8 @@ class FeatureExtractionTool(object):
                 self.report['total'] = len(dataloader)
                 progress_q.put(self.report)
             for i, batch_data in enumerate(tqdm(dataloader)):
+                if batch_data is None: # if all samples in this batch are bad(None), skip the batch
+                    continue
                 for k, v in batch_data.items():
                     data[k].extend(v)
                 if self.report is not None:
@@ -396,7 +413,11 @@ class FeatureExtractionTool(object):
             # padding features
             for item in ['audio', 'vision', 'text', 'text_bert']:
                 if item in data:
-                    data[item] = self.__paddingSequence(data[item])
+                    data[item], final_length = self.__paddingSequence(data[item])
+                    if f"{item}_lengths" in data:
+                        for i, length in enumerate(data[f"{item}_lengths"]):
+                            if length > final_length:
+                                data[f"{item}_lengths"][i] = final_length
             # transpose text_bert
             if 'text_bert' in data:
                 data['text_bert'] = data['text_bert'].transpose(0, 2, 1)
