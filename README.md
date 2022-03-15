@@ -9,13 +9,16 @@ MMSA-Feature Extraction Toolkit extracts multimodal features for Multimodal Sent
 
 ## 1. Installation
 
-MMSA-Feature Extraction Toolkit is available from Pypi:
+MMSA-Feature Extraction Toolkit is available from PyPI. Due to package size limitation on PyPi, large model files cannot be shipped with the package. Users need to run a post install command to download these files manually.
 
 ```bash
+# Install package from PyPI
 $ pip install MMSA-FET
+# Download models & libraries
+$ python -m MSA_FET install
 ```
 
-> **Note:** For the OpenFaceExtractor to work, a few system-wide dependancies are needed. See [Dependency Installation](https://github.com/FlameSky-S/MMSA-FET/wiki/Dependency-Installation) for more information.
+> **Note:** For the OpenFaceExtractor to work on Linux Platforms, a few system-wide dependancies are needed. See [Dependency Installation](https://github.com/FlameSky-S/MMSA-FET/wiki/Dependency-Installation) for more information.
 
 ## 2. Quick Start
 
