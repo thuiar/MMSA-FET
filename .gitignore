@@ -7,6 +7,5 @@ tests
 dist
 *.pyc
 __pycache__
-pretrained
-cen_patches_*_of.dat
+exts
 tmp.csv

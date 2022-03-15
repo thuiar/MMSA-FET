@@ -1,5 +1,3 @@
-import os
-import subprocess
 from pathlib import Path
 
 import cv2
@@ -10,10 +8,6 @@ from .box_utils import nms_
 from .nets import S3FDNet
 
 PATH_WEIGHT = Path(__file__).parent.parent.parent.parent.parent / 'exts' / 'pretrained' / 'sfd_face.pth'
-if os.path.isfile(PATH_WEIGHT) == False:
-    Link = "1KafnHz7ccT-3IyddBsL5yi2xGtxAKypt"
-    cmd = "gdown --id %s -O %s"%(Link, PATH_WEIGHT)
-    subprocess.call(cmd, shell=True, stdout=None)
 img_mean = np.array([104., 117., 123.])[:, np.newaxis, np.newaxis].astype('float32')
 
 
@@ -21,13 +15,16 @@ class S3FD():
 
     def __init__(self, device='cuda'):
 
+        if not PATH_WEIGHT.exists():
+            print("Model 'sdf_face.pth' not found. Please run `python -m MSA_FET install` to download pretrained files.")
+
         # tstamp = time.time()
         self.device = device
 
         # print('[S3FD] loading with', self.device)
         self.net = S3FDNet(device=self.device).to(self.device)
-        PATH = os.path.join(os.getcwd(), PATH_WEIGHT)
-        state_dict = torch.load(PATH, map_location=self.device)
+        # PATH = os.path.join(os.getcwd(), PATH_WEIGHT)
+        state_dict = torch.load(PATH_WEIGHT, map_location=self.device)
         self.net.load_state_dict(state_dict)
         self.net.eval()
         # print('[S3FD] finished loading (%.4f sec)' % (time.time() - tstamp))
