@@ -7,14 +7,28 @@
 
 MMSA-Feature Extraction Toolkit extracts multimodal features for Multimodal Sentiment Analysis Datasets. It integrates several commonly used tools for visual, acoustic and text modality. The extracted features are compatible with the [MMSA](https://github.com/thuiar/MMSA) Framework and thus can be used directly. The tool can also extract features for single videos.
 
+This work is included in the ACL-2022 DEMO paper: [M-SENA: An Integrated Platform for Multimodal Sentiment Analysis](). If you find our work useful, don't hesitate to cite our paper. Thank you!
+
+```text
+
+```
+
+### Features
+
+- Extract fully customized features for single videos or datasets. 
+- Integrate some most commonly used tools, including Librosa, OpenFace, Transformers, etc. 
+- Support Active Speaker Detection in case multiple faces exists in a video. 
+- Easy to use, provides Python APIs and commandline tools. 
+- Extracted features are compatible with [MMSA](https://github.com/thuiar/MMSA), a unified training & testing framework for Multimodal Sentiment Analysis.
+
 ## 1. Installation
 
-MMSA-Feature Extraction Toolkit is available from PyPI. Due to package size limitation on PyPi, large model files cannot be shipped with the package. Users need to run a post install command to download these files manually.
+MMSA-Feature Extraction Toolkit is available from PyPI. Due to package size limitation on PyPi, large model files cannot be shipped with the package. Users need to run a post install command to download these files manually. If you can't access Google Drive, please refer to [this page](https://github.com/FlameSky-S/MMSA-FET/wiki/Dependency-Installation#2-post-installation-script) for manual download. 
 
 ```bash
 # Install package from PyPI
 $ pip install MMSA-FET
-# Download models & libraries
+# Download models & libraries from Google Drive. Use --proxy if needed.
 $ python -m MSA_FET install
 ```
 
@@ -22,9 +36,9 @@ $ python -m MSA_FET install
 
 ## 2. Quick Start
 
-MMSA-FET is fairly easy to use. Below is a basic example on how to extract features for a single video file and a dataset folder.
+MMSA-FET is fairly easy to use. You can either call API in python or use commandline interface. Below is a basic example using python APIs.
 
-> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded [here]() with code ``.
+> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded from [BaiduYunDisk](https://pan.baidu.com/s/14XkD2kCGnJGMqnCLNzi6MQ?pwd=g9n5).
 
 ```python
 from MSA_FET import FeatureExtractionTool
@@ -83,7 +97,7 @@ config = {**config_a, **config_v}
 fet = FeatureExtractionTool(config=config)
 ```
 
-3. Provide a config json file. The below example extracts features of all three modalities. To extract unimodal features, just remove unnecessary sections from the file.
+2. Provide a config json file. The below example extracts features of all three modalities. To extract unimodal features, just remove unnecessary sections from the file.
 
 ```json
 {
@@ -153,6 +167,10 @@ fet = FeatureExtractionTool(config=config)
 
   Supports [face](https://google.github.io/mediapipe/solutions/face_mesh.html) mesh and [holistic](https://google.github.io/mediapipe/solutions/holistic)(face, hand, pose) solutions. Detailed configurations can be found [here](https://github.com/FlameSky-S/MMSA-FET/wiki/Configurations#22-mediapipe).
 
+- **TalkNet**([link](https://github.com/TaoRuijie/TalkNet_ASD))
+
+  TalkNet is used to support Active Speaker Detection in case there are multiple human faces in the video. 
+
 ### 4.3 Text Tools
 
 - **BERT** ([link](https://huggingface.co/docs/transformers/model_doc/bert))
@@ -162,3 +180,4 @@ fet = FeatureExtractionTool(config=config)
 - **XLNet** ([link](https://huggingface.co/docs/transformers/model_doc/xlnet))
 
   Integrated from huggingface transformers. Detailed configurations can be found [here](https://github.com/FlameSky-S/MMSA-FET/wiki/Configurations#32-xlnet).
+
