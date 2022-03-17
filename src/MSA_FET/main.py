@@ -39,8 +39,10 @@ class FeatureExtractionTool(object):
             Verbose level of stdout. 0 for error, 1 for info, 2 for debug. Default: 1.
 
     TODOs:
-        1. Add csv/dataframe output format.
-        2. Support specifying existing feature files, modify only some of the modalities.
+        1. Support VGGFace2 or DenseFace
+        2. Add option to pad zeros instead of discard the frame when no human faces are detected.
+        3. Add csv/dataframe output format.
+        4. Support specifying existing feature files, modify only some of the modalities.
     """
 
     def __init__(
@@ -229,7 +231,7 @@ class FeatureExtractionTool(object):
                   np.concatenate((feature, pad), axis=0)
         return feature
 
-    def __paddingSequence(self, sequences):
+    def __paddingSequence(self, sequences, value, location):
         """
         Pad features to the same length according to the mean length of the features.
         """
@@ -240,7 +242,7 @@ class FeatureExtractionTool(object):
         final_sequence = np.zeros([len(sequences), final_length, feature_dim])
         for i, s in enumerate(sequences):
             if len(s) != 0:
-                final_sequence[i] = self.__padding(s, final_length)
+                final_sequence[i] = self.__padding(s, final_length, value, location)
         return final_sequence, final_length
 
     def __collate_fn(self, batch):
@@ -324,7 +326,8 @@ class FeatureExtractionTool(object):
             self.__remove_tmp_folder(self.tmp_dir)
             raise e
 
-    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4, batch_size=32, skip_bad_data=True, progress_q=None, task_id=None):
+    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4,
+                    batch_size=32, skip_bad_data=True, padding_value='zero', padding_location='end', face_detection_failure='skip', progress_q=None, task_id=None):
         """
         Extract features from dataset and save in MMSA compatible format.
 
@@ -337,6 +340,9 @@ class FeatureExtractionTool(object):
             num_workers: number of workers for parallel processing. Default: 4.
             batch_size: batch size for parallel processing. Default: 32.
             skip_bad_data: skip bad data when loading dataset. Default: True.
+            padding_value: padding value for sequence padding. 'zero' or 'norm'. Default: 'zero'.
+            padding_location: padding location for sequence padding. 'end' or 'start'. Default: 'end'.
+            face_detection_failure: action to take when face detection fails. 'skip' the frame or 'pad' with zeros. Default: 'skip'.
             progress_q: multiprocessing queue for progress reporting with M-SENA.
             task_id: task id for M-SENA.
         """
@@ -413,7 +419,7 @@ class FeatureExtractionTool(object):
             # padding features
             for item in ['audio', 'vision', 'text', 'text_bert']:
                 if item in data:
-                    data[item], final_length = self.__paddingSequence(data[item])
+                    data[item], final_length = self.__paddingSequence(data[item], padding_value, padding_location)
                     if f"{item}_lengths" in data:
                         for i, length in enumerate(data[f"{item}_lengths"]):
                             if length > final_length:

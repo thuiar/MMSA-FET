@@ -1,5 +1,6 @@
 import platform
 import sys
+import os
 from pathlib import Path
 import shutil
 
@@ -42,13 +43,11 @@ def download_openface(proxy=None):
     ext_dir = Path(__file__).parent / "exts"
     print("Downloading OpenFace...")
     download_and_extract(OPENFACE_BASE, str(ext_dir / "OpenFace_Base.zip"), proxy=proxy)
-    # download_and_extract(OPENFACE_BASE, "/home/mhs/OpenFace_Base.zip", proxy=proxy)
     if system == "Linux":
         download_and_extract(OPENFACE_LINUX, str(ext_dir / "OpenFace" / "OpenFace_Linux.zip"), proxy=proxy)
-        # download_and_extract(OPENFACE_LINUX, "/home/mhs/OpenFace/OpenFace_Linux.zip", proxy=proxy)
+        os.chmod(str(ext_dir / "OpenFace"  / "FeatureExtraction"), 0o755)
     if system == "Windows":
         download_and_extract(OPENFACE_WIN64, str(ext_dir / "OpenFace" / "OpenFace_Win64.zip"), proxy=proxy)
-        # download_and_extract(OPENFACE_WIN64, "/home/mhs/OpenFace_Win64.zip", proxy=proxy)
     print("Done.")
 
 # Download pretrained models

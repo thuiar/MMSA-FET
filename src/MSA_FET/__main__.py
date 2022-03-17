@@ -27,15 +27,15 @@ def parse_args():
     # sub-parser for dataset mode
     parser_single = subparsers.add_parser("run_single", help="Run feature extraction on a single video")
     parser_single.add_argument('-i', '--input', type=str, required=True,
-                                help="Input video file in file mode, or dataset dir in dataset mode.")
+                                help="Input video file.")
     parser_single.add_argument('-c', '--config-file', type=str, required=True,
                                 help="Path to config file.")
     parser_single.add_argument('-o', '--output', type=str, required=True,
                                 help="Path to output pkl file.")
     parser_single.add_argument('-t', '--text-file', type=str, default=None,
                                 help="File containing transcriptions of the video. Required when extracting text features.")
-    parser_single.add_argument('--return_type', type=str, default='np', choices=['np', 'pt', 'df'],
-                                help="Return type of the tool.")
+    parser_single.add_argument('-r', '--return-type', type=str, default='np', choices=['np', 'pt', 'df'],
+                                help="Return type.")
     
 
     parser_dataset = subparsers.add_parser("run_dataset", help="Run feature extraction on a dataset")
@@ -47,10 +47,17 @@ def parse_args():
                                 help="Path to output pkl file.")
     parser_dataset.add_argument('-n', '--num-workers', type=int, default=4,
                                 help="Num of dataloader workers.")
-    parser_dataset.add_argument('--batch-size', type=int, default=4,
-                                help="Batch size. Default: 4")
-    parser_dataset.add_argument('--return_type', type=str, default='np', choices=['np', 'pt', 'df'],
-                                help="Return type of the tool.")
+    parser_dataset.add_argument('-b', '--batch-size', type=int, default=4,
+                                help="Batch size.")
+    parser_dataset.add_argument('-r', '--return-type', type=str, default='np', choices=['np', 'pt', 'df'],
+                                help="Return type.")
+    parser_dataset.add_argument('-s', '--skip-bad-data', action='store_true', help="Skip bad data when loading dataset.")
+    parser_dataset.add_argument('--pad-value', type=str, default='zero', choices=['zero', 'norm'],
+                                help="Padding value for sequence padding.")
+    parser_dataset.add_argument('--pad-location', type=str, default='end', choices=['end', 'start'],
+                                help="Padding location for sequence padding.")
+    parser_dataset.add_argument('--face-detection-failure', type=str, default='skip', choices=['skip', 'pad'],
+                                help="Action to take when face detection fails. 'skip' the frame or 'pad' with zeros.")
 
     return parser.parse_args()
 
@@ -92,7 +99,11 @@ if __name__ == '__main__':
                 out_file=args.output,
                 num_workers=args.num_workers,
                 return_type=args.return_type,
-                batch_size=args.batch_size
+                batch_size=args.batch_size,
+                skip_bad_data=True if args.skip_bad_data else False,
+                padding_value=args.pad_value,
+                padding_location=args.pad_location,
+                face_detection_failure=args.face_detection_failure
             )
         else:
             print("Unknown command: {}".format(args.command))
