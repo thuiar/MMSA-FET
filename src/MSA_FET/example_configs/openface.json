@@ -4,6 +4,7 @@
     "fps": 25,
     "multiFace": {
       "enable": false,
+      "device": "cuda:0",
       "facedetScale": 0.25,
       "minTrack": 10,
       "numFailedDet": 10,

@@ -43,6 +43,8 @@ class FeatureExtractionTool(object):
         2. Add option to pad zeros instead of discard the frame when no human faces are detected.
         3. Add csv/dataframe output format.
         4. Support specifying existing feature files, modify only some of the modalities.
+        5. Fix memory leak. Write to pkl file every batch.
+        6. Based on 5, implement resume function.
     """
 
     def __init__(
@@ -249,7 +251,7 @@ class FeatureExtractionTool(object):
         res = None
         for b in batch: # need to iterate through batch in case the first sample is bad(None)
             if b is not None:
-                res = {k: [] for k in batch[0].keys()} # initialize res
+                res = {k: [] for k in b.keys()} # initialize res
                 break
         if res is None: # if all samples in this batch are bad(None), return None
             return None
@@ -269,6 +271,12 @@ class FeatureExtractionTool(object):
         with open(out_file, 'wb') as f:
             pickle.dump(result, f)
         self.logger.info(f"Feature file saved: '{out_file}'.")
+    
+    def __save_tmp_result(self, tmp_res, out_file):
+        pass
+
+    def __load_tmp_result(self, tmp_res_file):
+        pass
 
     def __remove_tmp_folder(self, tmp_dir):
         if osp.exists(tmp_dir):

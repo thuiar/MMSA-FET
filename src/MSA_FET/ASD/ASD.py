@@ -40,7 +40,7 @@ def scene_detect(args):
 
 def inference_video(args):
     # GPU: Face detection, output is the list contains the face location and score in this frame
-    DET = S3FD(device='cuda')
+    DET = S3FD(device=args['device'])
     flist = glob.glob(os.path.join(args['pyframesPath'], '*.jpg'))
     flist.sort()
     dets = []

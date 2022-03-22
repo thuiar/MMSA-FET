@@ -74,7 +74,7 @@ class FET_Dataset(Dataset):
             if len(glob(osp.join(out_path, '*.jpg'))) == 0:
                 self.logger.warning(f'ASD returned empty results for video {video_id}')
                 shutil.rmtree(out_path)
-                return np.zeros((1,1))
+                return np.zeros((1,1)) # TODO: return zero tensor with the same dimension as normal features, require calculating the dimension from the config
         else:
             ffmpeg_extract(video_path, out_path, mode='image', fps=fps)
 
@@ -158,7 +158,8 @@ class FET_Dataset(Dataset):
         except Exception as e:
             self.logger.error(f'Error occurred when extracting features for video {video_id} clip {clip_id}')
             if self.ignore_error:
-                self.logger.warning(f'Ignore error and continue')
+                self.logger.warning(f'Ignore error and continue, see the log for details.')
+                self.logger.debug(str(e))
                 return None
             else:
                 raise e
