@@ -10,7 +10,12 @@ MMSA-Feature Extraction Toolkit extracts multimodal features for Multimodal Sent
 This work is included in the ACL-2022 DEMO paper: [M-SENA: An Integrated Platform for Multimodal Sentiment Analysis](). If you find our work useful, don't hesitate to cite our paper. Thank you!
 
 ```text
-
+@article{mao2022m,
+  title={M-SENA: An Integrated Platform for Multimodal Sentiment Analysis},
+  author={Mao, Huisheng and Yuan, Ziqi and Xu, Hua and Yu, Wenmeng and Liu, Yihe and Gao, Kai},
+  journal={arXiv preprint arXiv:2203.12441},
+  year={2022}
+}
 ```
 
 ### Features
@@ -32,13 +37,13 @@ $ pip install MMSA-FET
 $ python -m MSA_FET install
 ```
 
-> **Note:** For the OpenFaceExtractor to work on Linux Platforms, a few system-wide dependancies are needed. See [Dependency Installation](https://github.com/FlameSky-S/MMSA-FET/wiki/Dependency-Installation) for more information.
+> **Note:** A few system-wide dependancies need to be installed manually. See [Dependency Installation](https://github.com/FlameSky-S/MMSA-FET/wiki/Dependency-Installation) for more information.
 
 ## 2. Quick Start
 
 MMSA-FET is fairly easy to use. You can either call API in python or use commandline interface. Below is a basic example using python APIs.
 
-> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded from [BaiduYunDisk](https://pan.baidu.com/s/14XkD2kCGnJGMqnCLNzi6MQ?pwd=g9n5).
+> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded from [BaiduYunDisk](https://pan.baidu.com/s/1F2CgPCeG4eI6nmrRwp4ESA?pwd=7ppk) or [Google Drive](https://github.com/thuiar/MMSA-FET/wiki/Dataset-and-Structure#datasets).
 
 ```python
 from MSA_FET import FeatureExtractionTool
