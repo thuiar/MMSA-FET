@@ -76,7 +76,7 @@ class openfaceExtractor(baseExtractor):
         """
         try:
             args = self.args.copy()
-            args.extend(['-fdir', img_dir, '-out_dir', img_dir])
+            args.extend(['-fdir', str(img_dir), '-out_dir', str(img_dir)])
             if not tool_output:
                 args.append('-quiet')
             cmd = str(self.tool) + " " + " ".join(args)
