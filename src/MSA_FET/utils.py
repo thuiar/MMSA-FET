@@ -1,5 +1,5 @@
+import subprocess
 import json
-import ffmpeg
 import os.path as osp
 import urllib.request
 from tqdm import tqdm
@@ -38,11 +38,16 @@ def get_codec_name(file, mode):
     """
     assert mode in ['audio', 'video'], "Parameter 'mode' must be 'audio' or 'video'."
 
-    prob_result = ffmpeg.probe(file)
+    args = ['ffprobe', '-show_format', '-show_streams', '-of', 'json']
+    args += [file]
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    if p.returncode != 0:
+        raise RuntimeError("ffprobe", out, err)
+    prob_result = json.loads(out.decode('utf-8'))
     for track in prob_result['streams']:
         if track['codec_type'] == mode:
             return track['codec_name']
-
 
 
 def ffmpeg_extract(in_file, out_path, mode='audio', fps=25):
@@ -60,12 +65,19 @@ def ffmpeg_extract(in_file, out_path, mode='audio', fps=25):
     assert mode in ['audio', 'image'], "Parameter 'mode' must be 'audio' or 'image'."
     
     if mode == 'audio':
-        ffmpeg.input(in_file).output(out_path)\
-            .run(overwrite_output=True, quiet=True)
+        # For `out_path`, better use m4a as output format, 
+        # aac will lose timestamps and may result in shorter audio files
+        args = ['ffmpeg', '-i', in_file, '-vn', '-acodec', 'copy', '-y', out_path]
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        if p.returncode != 0:
+            raise RuntimeError("ffprobe", out, err)
     elif mode == 'image':
-        ffmpeg.input(in_file)\
-            .output(osp.join(out_path, '%03d.bmp'), r=f'{fps}/1')\
-            .run(quiet=True)
+        args = ['ffmpeg', '-i', in_file, '-r', f'{fps}/1', osp.join(out_path, '%03d.bmp')]
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        if p.returncode != 0:
+            raise RuntimeError("ffprobe", out, err)
 
 
 def download_file(url, save_path):
