@@ -1,6 +1,5 @@
 import subprocess
 import json
-import os.path as osp
 import urllib.request
 from tqdm import tqdm
 import re
@@ -23,7 +22,7 @@ def get_default_config(tool_name: str) -> dict:
     return res
 
 
-def get_codec_name(file, mode):
+def get_codec_name(file : Path, mode : str = 'audio') -> str:
     """
     Function:
         Get video/audio codec of the file.
@@ -39,7 +38,7 @@ def get_codec_name(file, mode):
     assert mode in ['audio', 'video'], "Parameter 'mode' must be 'audio' or 'video'."
 
     args = ['ffprobe', '-show_format', '-show_streams', '-of', 'json']
-    args += [file]
+    args += [str(file)]
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if p.returncode != 0:
@@ -50,7 +49,7 @@ def get_codec_name(file, mode):
             return track['codec_name']
 
 
-def ffmpeg_extract(in_file, out_path, mode='audio', fps=25):
+def ffmpeg_extract(in_file : Path, out_path : Path, mode : str = 'audio', fps : int = 10) -> None:
     """
     Function:
         Extract audio/image from the input file.
@@ -65,22 +64,20 @@ def ffmpeg_extract(in_file, out_path, mode='audio', fps=25):
     assert mode in ['audio', 'image'], "Parameter 'mode' must be 'audio' or 'image'."
     
     if mode == 'audio':
-        # For `out_path`, better use m4a as output format, 
-        # aac will lose timestamps and may result in shorter audio files
-        args = ['ffmpeg', '-i', in_file, '-vn', '-acodec', 'copy', '-y', out_path]
+        args = ['ffmpeg', '-i', str(in_file), '-vn', '-acodec', 'pcm_s16le', '-y', str(out_path)]
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         if p.returncode != 0:
-            raise RuntimeError("ffprobe", out, err)
+            raise RuntimeError("ffmpeg", out, err)
     elif mode == 'image':
-        args = ['ffmpeg', '-i', in_file, '-r', f'{fps}/1', osp.join(out_path, '%03d.bmp')]
+        args = ['ffmpeg', '-i', str(in_file), '-vf', f'fps={fps}', '-y', str(out_path / '%03d.bmp')]
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         if p.returncode != 0:
-            raise RuntimeError("ffprobe", out, err)
+            raise RuntimeError("ffmpeg", out, err)
 
 
-def download_file(url, save_path):
+def download_file(url : str, save_path : Path) -> None:
     """
     Function:
         Download file from url.
@@ -107,10 +104,3 @@ def download_file(url, save_path):
                 pbar.update(len(data))
             pbar.close()
 
-
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-
-def natural_keys(text):
-    return [ atoi(c) for c in re.split('(\d+)', text) ]
