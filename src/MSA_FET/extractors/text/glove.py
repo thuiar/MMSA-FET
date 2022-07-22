@@ -10,7 +10,7 @@ class gloveExtractor(baseTextExtractor):
     """
     def __init__(self, config, logger):
         try:
-            logger.info("Initializing BERT text feature extractor.")
+            logger.info("Initializing BERT text feature extractor...")
             super().__init__(config, logger)
             self.embedding, self.dim = self.get_glove_embeddings(config['embedding_file'])
         except Exception as e:

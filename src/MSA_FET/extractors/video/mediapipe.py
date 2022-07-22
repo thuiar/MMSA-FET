@@ -5,12 +5,12 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from ..baseExtractor import baseExtractor
+from ..baseExtractor import baseVideoExtractor
 
 import mediapipe as mp
 
 
-class mediapipeExtractor(baseExtractor):
+class mediapipeExtractor(baseVideoExtractor):
     """
     Video feature extractor using MediaPipe. 
     Ref: https://mediapipe.dev/

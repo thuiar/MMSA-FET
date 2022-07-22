@@ -1,4 +1,4 @@
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizerFast, BertModel
 from ..baseExtractor import baseTextExtractor
 import torch
 import numpy as np
@@ -12,18 +12,19 @@ class bertExtractor(baseTextExtractor):
     """
     def __init__(self, config, logger):
         try:
-            logger.info("Initializing BERT text feature extractor.")
+            logger.info("Initializing BERT text feature extractor...")
             super().__init__(config, logger)
-            self.tokenizer = BertTokenizer.from_pretrained(self.config['pretrained'])
-            self.model = BertModel.from_pretrained(self.config['pretrained']).to(self.config['device'])
-            self.finetune = self.config['finetune'] if 'finetune' in self.config else False
+            self.device = self.config.get('device', torch.device('cpu'))
+            self.tokenizer = BertTokenizerFast.from_pretrained(self.config['pretrained'])
+            self.model = BertModel.from_pretrained(self.config['pretrained']).to(self.device)
+            self.finetune = self.config.get('finetune', False)
         except Exception as e:
             logger.error("Failed to initialize bertExtractor.")
             raise e
     
     def extract(self, text):
         try:
-            input_ids = self.tokenizer.encode(text, add_special_tokens=True, return_tensors='pt').to(self.config['device'])
+            input_ids = self.tokenizer.encode(text, return_tensors='pt').to(self.device)
             # encoded_inputs = self.tokenizer(text, add_special_tokens=True, return_tensors='pt', padding='max_length', truncation=True, max_length=50).to(self.config['device'])
             with torch.no_grad():
                 last_hidden_state = self.model(input_ids).last_hidden_state
@@ -53,4 +54,17 @@ class bertExtractor(baseTextExtractor):
             return text_bert
         except Exception as e:
             self.logger.error(f"Failed to tokenize text with BERT for '{text}'.")
+            raise e
+
+    def get_word_ids(self, text) -> list:
+        """
+        Get word_id mapping for each token. 
+        Words are split by space instead of tokenizer-specific settings which may include
+        punctuations. This is for ASR compatibility.
+        """
+        try:
+            encoding = self.tokenizer(text.split(), is_split_into_words=True)
+            return encoding.word_ids()
+        except Exception as e:
+            self.logger.error(f"Failed to get tokens with BERT for '{text}'.")
             raise e

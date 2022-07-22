@@ -1,8 +1,7 @@
 .vscode
+assets
 tmp
-test.ipynb
-test*.py
-tests
+test*
 *.egg-info
 dist
 *.pyc

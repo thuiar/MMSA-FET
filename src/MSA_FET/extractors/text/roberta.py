@@ -12,7 +12,7 @@ class robertaExtractor(baseTextExtractor):
     """
     def __init__(self, config, logger):
         try:
-            logger.info("Initializing RoBERTa text feature extractor.")
+            logger.info("Initializing RoBERTa text feature extractor...")
             super().__init__(config, logger)
             self.tokenizer = RobertaTokenizer.from_pretrained(self.config['pretrained'])
             self.model = RobertaModel.from_pretrained(self.config['pretrained']).to(self.config['device'])

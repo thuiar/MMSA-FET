@@ -9,10 +9,10 @@ import torch.nn as nn
 
 from ...models import Senet50_ft_dag
 from ...utils import download_file
-from ..baseExtractor import baseAudioExtractor, baseExtractor
+from ..baseExtractor import baseVideoExtractor
 
 
-class vggfaceExtractor(baseAudioExtractor):
+class vggfaceExtractor(baseVideoExtractor):
     """
     Video feature extractor using pretrained model from VGGFace2. 
     Ref: https://www.robots.ox.ac.uk/~albanie/pytorch-models.html

@@ -1,16 +1,26 @@
 {
   "audio": {
     "tool": "librosa",
-    "sample_rate": null,
-    "args": {
+    "sample_rate": 22050,
+    "n_fft": 512,
+    "hop_lenth": 128,
+    "features": {
+      "chroma_stft": {},
+      "chroma_cqt": {},
+      "chroma_cens": {},
       "mfcc": {
-        "n_mfcc": 20,
+        "n_mfcc": 13,
         "htk": true
       },
       "rms": {},
-      "zero_crossing_rate": {},
+      "spectral_centroid": {},
+      "spectral_bandwidth": {},
+      "spectral_contrast": {},
+      "spectral_flatness": {},
       "spectral_rolloff": {},
-      "spectral_centroid": {}
+      "poly_features": {},
+      "tonnetz": {},
+      "zero_crossing_rate": {}
     }
   }
 }

@@ -2,7 +2,6 @@ import json
 import logging
 import multiprocessing
 import os
-import os.path as osp
 import pickle
 import shutil
 import time
@@ -16,11 +15,12 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from .aligners import *
 from .ASD import run_ASD
 from .dataloader import FET_Dataset
 from .extractors import *
 from .utils import *
-
+from typing import Union
 
 class FeatureExtractionTool(object):
     """
@@ -43,44 +43,41 @@ class FeatureExtractionTool(object):
         2. Add option to pad zeros instead of discard the frame when no human faces are detected.
         3. Add csv/dataframe output format.
         4. Support specifying existing feature files, modify only some of the modalities.
-        5. Fix memory leak. Write to pkl file every batch.
-        6. Based on 5, implement resume function.
+        5. Implement resume function.
+        6. Forced Alignment & Aligned Feature Extraction.
+        7. GPU support in `run_dataset()`.
+        8. Clean up tmp folder before run_single.
     """
 
     def __init__(
         self,
-        config,
-        dataset_root_dir=None,
-        tmp_dir=osp.join(Path.home(), '.MMSA-FET/tmp'),
-        log_dir=osp.join(Path.home(), '.MMSA-FET/log'),
-        verbose=1
+        config : Union[dict, str],
+        dataset_root_dir : Union[Path, str] = None,
+        tmp_dir : Union[Path, str] = Path.home() / '.MMSA-FET/tmp',
+        log_dir : Union[Path, str] = Path.home() / '.MMSA-FET/log',
+        verbose : int = 1
     ):
         if type(config) == dict:
             self.config = config
         elif type(config) == str:
-            if osp.isfile(config):
+            if Path(config).is_file():
                 with open(config, 'r') as f:
                     self.config = json.load(f)
-            elif osp.isfile(name := osp.join(osp.dirname(__file__), 'example_configs', config + '.json')):
-                with open(name, 'r') as f:
-                    self.config = json.load(f)
-            elif osp.isfile(name := osp.join(osp.dirname(__file__), 'example_configs', config)):
+            elif Path(name := Path(__file__).parent / 'example_configs' / f"{config}.json").is_file():
                 with open(name, 'r') as f:
                     self.config = json.load(f)
             else:
                 raise ValueError(f"Config file {config} does not exist.")
         else:
-            raise ValueError("Invalid config type.")
-        self.tmp_dir = tmp_dir
-        self.log_dir = log_dir
-        self.dataset_root_dir = dataset_root_dir
+            raise ValueError("Invalid argument type for `config`.")
+        self.tmp_dir = Path(tmp_dir)
+        self.log_dir = Path(log_dir)
+        self.dataset_root_dir = Path(dataset_root_dir) if dataset_root_dir else None
         self.verbose = verbose
 
-        if not osp.isdir(self.tmp_dir):
-            Path(self.tmp_dir).mkdir(parents=True, exist_ok=True)
-        if not osp.isdir(self.log_dir):
-            Path(self.log_dir).mkdir(parents=True, exist_ok=True)
-            
+        Path(self.tmp_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.log_dir).mkdir(parents=True, exist_ok=True)
+        
         self.logger = logging.getLogger("MMSA-FET")
         if self.verbose == 1:
             self.__set_logger(logging.INFO)
@@ -94,17 +91,16 @@ class FeatureExtractionTool(object):
         self.logger.info("")
         self.logger.info("========================== MMSA-FET Started ==========================")
         self.logger.info(f"Temporary directory: {self.tmp_dir}")
-        self.logger.info(f"Log file: '{osp.join(self.log_dir, 'MMSA-FET.log')}'")
+        self.logger.info(f"Log file: '{self.log_dir / 'MMSA-FET.log'}'")
         # self.logger.info(f"Config file: '{self.config_file}'")
         self.logger.info(f"Config: {self.config}")
 
-        self.video_extractor, self.audio_extractor, self.text_extractor = None, None, None
-        
+        self.video_extractor, self.audio_extractor, self.text_extractor, self.aligner = None, None, None, None
 
     def __set_logger(self, stream_level):
         self.logger.setLevel(logging.DEBUG)
 
-        fh = RotatingFileHandler(osp.join(self.log_dir, 'MSA-FET.log'), maxBytes=2e7, backupCount=5)
+        fh = RotatingFileHandler(self.log_dir / 'MSA-FET.log', maxBytes=2e7, backupCount=5)
         fh_formatter = logging.Formatter('%(asctime)s - %(name)s [%(levelname)s] - %(message)s')
         fh.setFormatter(fh_formatter)
         fh.setLevel(logging.DEBUG)
@@ -132,11 +128,14 @@ class FeatureExtractionTool(object):
             text_cfg = self.config['text']
             extractor_name = text_cfg['model']
             self.text_extractor = TEXT_EXTRACTOR_MAP[extractor_name](text_cfg, self.logger)
+        if 'align' in self.config and self.aligner is None:
+            align_cfg = self.config['align']
+            self.aligner = ALIGNER_MAP[align_cfg['tool']](align_cfg, self.logger)
     
     def __audio_extract_single(self, in_file, keep_tmp_file=False):
         # extract audio from video file
         # extension = get_codec_name(in_file, 'audio')
-        tmp_audio_file = osp.join(self.tmp_dir, 'tmp_audio.wav')
+        tmp_audio_file = self.tmp_dir / 'tmp_audio.wav'
         ffmpeg_extract(in_file, tmp_audio_file, mode='audio')
         
         # extract audio features
@@ -149,7 +148,7 @@ class FeatureExtractionTool(object):
     def __video_extract_single(self, in_file, keep_tmp_file=False):
         # extract images from video
         fps = self.config['video']['fps']
-        if 'multiFace' in self.config['video'] and self.config['video']['multiFace']['enable'] == True:
+        if self.config['video'].get('multiFace', {}).get('enable', False):
             # enable Active Speaker Detection
             run_ASD(in_file, self.tmp_dir, fps, self.config['video']['multiFace'])
         else:
@@ -160,53 +159,113 @@ class FeatureExtractionTool(object):
         video_result = self.video_extractor.extract(self.tmp_dir, name, tool_output=self.verbose>0)
         # delete tmp images
         if not keep_tmp_file:
-            for image_path in glob(osp.join(self.tmp_dir, '*.bmp')):
+            for image_path in glob(str(self.tmp_dir / '*.bmp')):
                 os.remove(image_path)
-            for image_path in glob(osp.join(self.tmp_dir, '*.jpg')):
+            for image_path in glob(str(self.tmp_dir / '*.jpg')):
                 os.remove(image_path)
         return video_result
 
-    def __text_extract_single(self, in_file):
-        text = self.text_extractor.load_text(in_file)
+    def __text_extract_single(self, in_file, in_text=None):
+        if in_text:
+            text = in_text
+        else:
+            text = self.text_extractor.load_text_from_file(in_file)
         text_result = self.text_extractor.extract(text)
         # text_tokens = self.text_extractor.tokenize(text)
         return text_result
 
+    def __aligned_extract_single(self, align_result, word_ids, audio_result=None, video_result=None):
+        word_count = len(align_result)
+        if audio_result is not None:
+            audio_timestamp = self.audio_extractor.get_timestamps()
+            tmp_result = []
+            for word_result in align_result:
+                _, start, end, _ = word_result.values()
+                start_idx_a, end_idx_a = 0, 0
+                for index, value in enumerate(audio_timestamp):
+                    if value <= start:
+                        start_idx_a = index
+                    if value >= end:
+                        end_idx_a = index
+                        break
+                tmp_result.append(
+                    np.mean(audio_result[start_idx_a:end_idx_a], axis=0)
+                )
+            assert len(tmp_result) == word_count
+            # align with text tokens, add zero padding or duplicate features
+            aligned_audio_result = []
+            for i in word_ids:
+                if i is None:
+                    aligned_audio_result.append(np.zeros(len(tmp_result[0])))
+                else:
+                    aligned_audio_result.append(tmp_result[i])
+            aligned_audio_result = np.asarray(aligned_audio_result)
+        else:
+            aligned_audio_result = None
+        if video_result is not None:
+            video_timestamp = self.video_extractor.get_timestamps()
+            tmp_result = []
+            for word_result in align_result:
+                _, start, end, _ = word_result.values()
+                start_idx_v, end_idx_v = 0, 0
+                for index, value in enumerate(video_timestamp):
+                    if value <= start:
+                        start_idx_v = index
+                    if value >= end:
+                        end_idx_v = index
+                        break
+                tmp_result.append(
+                    np.mean(video_result[start_idx_v:end_idx_v], axis=0)
+                )
+            assert len(tmp_result) == word_count
+            # align with text tokens, add zero padding or duplicate features
+            aligned_video_result = []
+            for i in word_ids:
+                if i is None:
+                    aligned_video_result.append(np.zeros(len(tmp_result[0])))
+                else:
+                    aligned_video_result.append(tmp_result[i])
+            aligned_video_result = np.asarray(aligned_video_result)
+        else:
+            aligned_video_result = None
+        return aligned_audio_result, aligned_video_result
+    
     def __read_label_file(self, dataset_name, dataset_root_dir, dataset_dir):
         # Locate and read label.csv file
         assert dataset_name is not None or dataset_dir is not None, "Either 'dataset_name' or 'dataset_dir' must be specified."
+        dataset_dir = Path(dataset_dir) if dataset_dir else None
+        dataset_root_dir = Path(dataset_root_dir) if dataset_root_dir else None
         if dataset_dir: # Use dataset_dir
-            dataset_dir = osp.normpath(dataset_dir) # normalize path, remove trailing slash so that osp.basename function works correctly
-            dataset_name = osp.basename(dataset_dir)
-            if not osp.exists(dataset_dir):
-                raise RuntimeError(f"Dataset directory '{self.dataset_dir}' does not exist.")
-            if not osp.exists(osp.join(dataset_dir, 'label.csv')):
-                raise RuntimeError(f"Label file '{dataset_dir}/label.csv' does not exist.")
+            dataset_name = Path(dataset_dir).name
+            if not dataset_dir.exists():
+                raise FileNotFoundError(f"Dataset directory '{self.dataset_dir}' does not exist.")
+            if not (dataset_dir / 'label.csv').exists():
+                raise FileNotFoundError(f"Label file '{dataset_dir}/label.csv' does not exist.")
             label_df = pd.read_csv(
-                osp.join(dataset_dir, 'label.csv'),
+                dataset_dir / 'label.csv',
                 dtype={'clip_id': str, 'video_id': str, 'text': str}
             )
             return label_df, dataset_dir, dataset_name, None
         else: # Use dataset_name
-            dataset_root_dir = dataset_root_dir if dataset_root_dir is not None else self.dataset_root_dir
-            if dataset_root_dir is None:
+            self.dataset_root_dir = dataset_root_dir if dataset_root_dir else self.dataset_root_dir
+            if not self.dataset_root_dir:
                 raise ValueError("Dataset root directory is not specified.")
-            if not osp.exists(dataset_root_dir):
-                raise RuntimeError(f"Dataset root directory '{dataset_root_dir}' does not exist.")
+            if not self.dataset_root_dir.exists():
+                raise FileNotFoundError(f"Dataset root directory '{self.dataset_root_dir}' does not exist.")
             try: # Try to locate label.csv according to global dataset config file
-                with open(osp.join(self.dataset_root_dir, 'config.json'), 'r') as f:
+                with open(self.dataset_root_dir / 'config.json', 'r') as f:
                     dataset_config_all = json.load(f)
                 dataset_config = dataset_config_all[dataset_name]
-                label_file = osp.join(self.dataset_root_dir, dataset_config['label_path'])
+                label_file = self.dataset_root_dir / dataset_config['label_path']
             except: # If failed, try to locate label.csv using joined path
-                label_file = osp.join(dataset_root_dir, dataset_name, 'label.csv')
-            if not osp.exists(label_file):
-                raise RuntimeError(f"Label file '{label_file}' does not exist.")
+                label_file = self.dataset_root_dir / dataset_name / 'label.csv'
+            if not label_file.exists():
+                raise FileNotFoundError(f"Label file '{label_file}' does not exist.")
             label_df = pd.read_csv(
                 label_file,
                 dtype={'clip_id': str, 'video_id': str, 'text': str}
             )
-            return label_df, osp.dirname(label_file), dataset_name, dataset_config
+            return label_df, label_file.parent, dataset_name, dataset_config
 
     def __padding(self, feature, MAX_LEN, value='zero', location='end'):
         """
@@ -263,13 +322,14 @@ class FeatureExtractionTool(object):
         return res
 
     def __save_result(self, result, out_file):
-        if osp.exists(out_file):
-            out_file_alt = osp.splitext(out_file)[0] + '_' + str(int(time.time())) + '.pkl'
+        out_file = Path(out_file)
+        if out_file.exists():
+            out_file_alt = out_file.parent / (out_file.stem + '_' + str(int(time.time())) + '.pkl')
             self.logger.warning(f"Output file '{out_file}' already exists. Saving to '{out_file_alt}' instead.")
             out_file = out_file_alt
-        Path(out_file).parent.mkdir(parents=True, exist_ok=True)
+        out_file.parent.mkdir(parents=True, exist_ok=True)
         with open(out_file, 'wb') as f:
-            pickle.dump(result, f)
+            pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
         self.logger.info(f"Feature file saved: '{out_file}'.")
     
     def __save_tmp_result(self, tmp_res, out_file):
@@ -279,18 +339,26 @@ class FeatureExtractionTool(object):
         pass
 
     def __remove_tmp_folder(self, tmp_dir):
-        if osp.exists(tmp_dir):
+        if Path(tmp_dir).exists():
             shutil.rmtree(tmp_dir)
 
-    def run_single(self, in_file, out_file=None, text_file=None, return_type='np'):
+    def run_single(
+        self, 
+        in_file : Path | str, 
+        out_file : Path | str = None, 
+        text : str = None, 
+        text_file : Path | str = None, 
+        return_type : str = 'np'):
         """
         Extract features from single file.
 
         Parameters:
             in_file: path to input video file.
-            return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.
+            return_type: `'pt'` for pytorch tensor, `'np'` for numpy array. 
+                `'pd'` for pandas dataframe. Default: `'np'`.
             out_file (optional): path to output file.
-            text_file (optional): path to text file.
+            text (optional): text to be extracted.
+            text_file (optional): path to text file. Ignored if `text` is not None.
         
         Returns:
             final_result: dictionary of extracted features.
@@ -303,10 +371,30 @@ class FeatureExtractionTool(object):
                 audio_result = self.__audio_extract_single(in_file, keep_tmp_file=True)
             if 'video' in self.config:
                 video_result = self.__video_extract_single(in_file)
+            if 'align' in self.config:
+                assert 'audio' in self.config or 'video' in self.config
+                assert 'text' in self.config, "Text feature is required for alignment. Please add 'text' section in config."
+                if text is None and text_file is None:
+                    if not self.aligner.has_asr:
+                        raise ValueError("Text file is not specified.")
+                    self.logger.warning("Text file is not specified. Using ASR result.")
+                    align_result = self.aligner.do_asr_and_align(in_file)
+                    text = self.aligner.get_asr_result()
+                else:
+                    text = text if text is not None else open(text_file).read().strip()
+                    align_result = self.aligner.align_with_transcript(in_file, text)
+                    word_ids = self.text_extractor.get_word_ids(text)
+                    audio_result, video_result = self.__aligned_extract_single(
+                        align_result, word_ids, audio_result, video_result
+                    )
             if 'text' in self.config:
-                if text_file is None:
-                    raise ValueError("Text file is not specified.")
-                text_result = self.__text_extract_single(text_file)
+                text_result = self.__text_extract_single(None, text)
+            if 'align' in self.config:
+                # verify aligned sequence length
+                if 'audio' in self.config:
+                    assert audio_result.shape[0] == text_result.shape[0]
+                if 'video' in self.config:
+                    assert video_result.shape[0] == text_result.shape[0]
             # combine audio and video features
             if return_type == 'pt':
                 if 'audio' in self.config:
@@ -322,6 +410,8 @@ class FeatureExtractionTool(object):
                     final_result['video'] = video_result
                 if 'text' in self.config:
                     final_result['text'] = text_result
+            elif return_type == 'df':
+                pass
             else:
                 raise ValueError(f"Invalid return type '{return_type}'.")
             # save result
@@ -460,7 +550,7 @@ class FeatureExtractionTool(object):
                             data[mode][key] = torch.from_numpy(data[mode][key])
             # save result
             if out_file is None:
-                out_file = osp.join(self.dataset_dir, 'feature.pkl')
+                out_file = self.dataset_dir / 'feature.pkl'
             self.__save_result(data, out_file)
             self.logger.info(f"Feature extraction complete!")
             if self.report is not None:

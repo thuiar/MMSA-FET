@@ -10,7 +10,7 @@ class wav2vec2Extractor(baseAudioExtractor):
     """
     def __init__(self, config, logger):
         try:
-            logger.info("Initializing Wav2Vec2 audio feature extractor.")
+            logger.info("Initializing Wav2Vec2 audio feature extractor...")
             super().__init__(config, logger)
             self.preprocessor = Wav2Vec2FeatureExtractor.from_pretrained(config['pretrained'])
             self.extractor = Wav2Vec2Model.from_pretrained(config['pretrained'])

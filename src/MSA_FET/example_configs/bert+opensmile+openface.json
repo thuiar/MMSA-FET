@@ -31,5 +31,11 @@
       "gaze": true,
       "tracked": false
     }
+  },
+  "align": {
+    "tool": "wav2vec",
+    "args": {
+      "model_name": "jonatasgrosman/wav2vec2-large-xlsr-53-english"
+    }
   }
 }

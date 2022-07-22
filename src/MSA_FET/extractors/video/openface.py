@@ -1,3 +1,4 @@
+from glob import glob
 import os
 import platform
 from pathlib import Path
@@ -5,10 +6,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..baseExtractor import baseExtractor
+from ..baseExtractor import baseVideoExtractor
 
 
-class openfaceExtractor(baseExtractor):
+class openfaceExtractor(baseVideoExtractor):
     """
     Video feature extractor using OpenFace. 
     Ref: https://mediapipe.dev/
@@ -75,6 +76,8 @@ class openfaceExtractor(baseExtractor):
             video_result: extracted video features in numpy array.
         """
         try:
+            self.img_dir = Path(img_dir)
+            self.num_imgs = len(glob(str(self.img_dir / "*.bmp")))
             args = self.args.copy()
             args.extend(['-fdir', str(img_dir), '-out_dir', str(img_dir)])
             if not tool_output:
@@ -82,8 +85,8 @@ class openfaceExtractor(baseExtractor):
             cmd = str(self.tool) + " " + " ".join(args)
             os.system(cmd)
 
-            name = Path(img_dir).stem
-            df = pd.read_csv(Path(img_dir) / (str(name) + '.csv'))
+            name = str(Path(img_dir).stem)
+            df = pd.read_csv(Path(img_dir) / (name + '.csv'))
             features, local_features = [], []
             for i in range(len(df)):
                 local_features.append(np.array(df.loc[i][df.columns[5:]]))
@@ -96,3 +99,10 @@ class openfaceExtractor(baseExtractor):
         except Exception as e:
             self.logger.error(f"Failed to extract video features with OpenFace from {video_name}.")
             raise e
+
+    def get_feature_names(self) -> list:
+        pass
+
+    def get_timestamps(self):
+        fps = self.config['fps']
+        return np.arange(0, self.num_imgs / fps, 1 / fps)
