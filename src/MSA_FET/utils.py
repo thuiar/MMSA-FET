@@ -1,9 +1,12 @@
-import subprocess
+import io
 import json
+import subprocess
 import urllib.request
-from tqdm import tqdm
-import re
 from pathlib import Path
+
+import numpy as np
+import soundfile as sf
+from tqdm import tqdm
 
 
 def get_default_config(tool_name: str) -> dict:
@@ -24,10 +27,9 @@ def get_default_config(tool_name: str) -> dict:
 
 def get_codec_name(file : Path, mode : str = 'audio') -> str:
     """
-    Function:
-        Get video/audio codec of the file.
+    Get video/audio codec of the file.
 
-    Parameters:
+    Args:
         file: Path to the file.
         mode: Should be 'video' or 'audio'.
 
@@ -37,8 +39,7 @@ def get_codec_name(file : Path, mode : str = 'audio') -> str:
     """
     assert mode in ['audio', 'video'], "Parameter 'mode' must be 'audio' or 'video'."
 
-    args = ['ffprobe', '-show_format', '-show_streams', '-of', 'json']
-    args += [str(file)]
+    args = ['ffprobe', '-show_format', '-show_streams', '-of', 'json', str(file)]
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if p.returncode != 0:
@@ -49,12 +50,31 @@ def get_codec_name(file : Path, mode : str = 'audio') -> str:
             return track['codec_name']
 
 
+def get_video_size(file : Path) -> tuple(int, int):
+    """
+    Get height and width of video file.
+
+    Args:
+        file: Path to video file.
+
+    Returns:
+        height: Video height.
+        width: Video width.
+    """
+    args = ['ffprobe', '-select_streams', 'v', '-show_entries', 'stream=height,width', '-of', 'json', '-i', str(file)]
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    if p.returncode != 0:
+        raise RuntimeError("ffprobe", out, err)
+    prob_result = json.loads(out.decode('utf-8'))
+    return prob_result['streams'][0]['height'], prob_result['streams'][0]['width']
+
+
 def ffmpeg_extract(in_file : Path, out_path : Path, mode : str = 'audio', fps : int = 10) -> None:
     """
-    Function:
-        Extract audio/image from the input file.
+    Extract audio/image from input video file and save to disk.
 
-    Params:
+    Args:
         in_file: Path to the input file.
         out_path: Path to the output file.
         mode: Should be 'audio' or 'image'.
@@ -77,12 +97,47 @@ def ffmpeg_extract(in_file : Path, out_path : Path, mode : str = 'audio', fps : 
             raise RuntimeError("ffmpeg", out, err)
 
 
+def ffmpeg_extract_fast(in_file : Path, mode : str = 'audio', fps : int = 10) -> tuple(np.ndarray, int) | tuple(np.ndarray, int, int):
+    """
+    Extract audio/image from input video file and return the numpy array.
+
+    Args:
+        in_file: Path to the input file.
+        mode: Should be 'audio' or 'image'.
+        fps: Frames per second, will be ignored if mode is 'audio'.
+
+    Returns:
+        data: Numpy array containing the data.
+        sr: Audio sample rate.
+        height: Video height.
+        width: Video width.
+    """
+    assert mode in ['audio', 'image'], "Parameter 'mode' must be 'audio' or 'image'."
+    
+    if mode == 'audio':
+        args = ['ffmpeg', '-i', str(in_file), '-vn', '-ac', '1', '-acodec', 'pcm_s16le', '-f', 'wav', 'pipe:']
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        if p.returncode != 0:
+            raise RuntimeError("ffmpeg", out, err)
+        data, sr = sf.read(io.BytesIO(out))
+        return data, sr
+    elif mode == 'image':
+        height, width = get_video_size(in_file)
+        args = ['ffmpeg', '-i', str(in_file), '-vf', f'fps={fps}', '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:']
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        if p.returncode != 0:
+            raise RuntimeError("ffmpeg", out, err)
+        data = np.frombuffer(out, dtype=np.uint8).reshape([-1, height, width, 3])
+        return data, height, width
+
+
 def download_file(url : str, save_path : Path) -> None:
     """
-    Function:
-        Download file from url.
+    Download file from url.
 
-    Params:
+    Args:
         url: Url of file to be downloaded.
         save_path: Save path, including filename and extension.
 

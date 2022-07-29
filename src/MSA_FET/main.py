@@ -1,12 +1,12 @@
 import json
 import logging
-import multiprocessing
 import os
 import pickle
 import shutil
 import time
 from glob import glob
 from logging.handlers import RotatingFileHandler
+from multiprocessing.queues import Queue
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +20,7 @@ from .ASD import run_ASD
 from .dataloader import FET_Dataset
 from .extractors import *
 from .utils import *
-from typing import Union
+
 
 class FeatureExtractionTool(object):
     """
@@ -45,18 +45,18 @@ class FeatureExtractionTool(object):
         4. Support specifying existing feature files, modify only some of the modalities.
         5. Implement resume function.
         6. Forced Alignment & Aligned Feature Extraction.
-        7. GPU support in `run_dataset()`.
+        7. GPU support in `run_dataset()`. Maybe discard Dataset and Dataloader is a good idea. Just implement multiprocessing pool manually.
         8. Clean up tmp folder before run_single.
     """
 
     def __init__(
         self,
-        config : Union[dict, str],
-        dataset_root_dir : Union[Path, str] = None,
-        tmp_dir : Union[Path, str] = Path.home() / '.MMSA-FET/tmp',
-        log_dir : Union[Path, str] = Path.home() / '.MMSA-FET/log',
+        config : dict | str,
+        dataset_root_dir : Path | str = None,
+        tmp_dir : Path | str = Path.home() / '.MMSA-FET/tmp',
+        log_dir : Path | str = Path.home() / '.MMSA-FET/log',
         verbose : int = 1
-    ):
+    ) -> None:
         if type(config) == dict:
             self.config = config
         elif type(config) == str:
@@ -80,11 +80,11 @@ class FeatureExtractionTool(object):
         
         self.logger = logging.getLogger("MMSA-FET")
         if self.verbose == 1:
-            self.__set_logger(logging.INFO)
+            self._set_logger(logging.INFO)
         elif self.verbose == 0:
-            self.__set_logger(logging.ERROR)
+            self._set_logger(logging.ERROR)
         elif self.verbose == 2:
-            self.__set_logger(logging.DEBUG)
+            self._set_logger(logging.DEBUG)
         else:
             raise ValueError(f"Invalid verbose level '{self.verbose}'.")
         
@@ -97,7 +97,7 @@ class FeatureExtractionTool(object):
 
         self.video_extractor, self.audio_extractor, self.text_extractor, self.aligner = None, None, None, None
 
-    def __set_logger(self, stream_level):
+    def _set_logger(self, stream_level : int) -> None:
         self.logger.setLevel(logging.DEBUG)
 
         fh = RotatingFileHandler(self.log_dir / 'MSA-FET.log', maxBytes=2e7, backupCount=5)
@@ -112,7 +112,7 @@ class FeatureExtractionTool(object):
         ch.setFormatter(ch_formatter)
         self.logger.addHandler(ch)
 
-    def __init_extractors(self):
+    def _init_extractors(self) -> None:
         if 'audio' in self.config and self.audio_extractor is None:
             # self.logger.info(f"Initializing audio feature extractor...")
             audio_cfg = self.config['audio']
@@ -132,7 +132,7 @@ class FeatureExtractionTool(object):
             align_cfg = self.config['align']
             self.aligner = ALIGNER_MAP[align_cfg['tool']](align_cfg, self.logger)
     
-    def __audio_extract_single(self, in_file, keep_tmp_file=False):
+    def _audio_extract_single(self, in_file : Path, keep_tmp_file : bool = False) -> np.ndarray:
         # extract audio from video file
         # extension = get_codec_name(in_file, 'audio')
         tmp_audio_file = self.tmp_dir / 'tmp_audio.wav'
@@ -145,7 +145,7 @@ class FeatureExtractionTool(object):
             os.remove(tmp_audio_file)
         return audio_result
 
-    def __video_extract_single(self, in_file, keep_tmp_file=False):
+    def _video_extract_single(self, in_file : Path, keep_tmp_file : bool = False) -> np.ndarray:
         # extract images from video
         fps = self.config['video']['fps']
         if self.config['video'].get('multiFace', {}).get('enable', False):
@@ -165,7 +165,7 @@ class FeatureExtractionTool(object):
                 os.remove(image_path)
         return video_result
 
-    def __text_extract_single(self, in_file, in_text=None):
+    def _text_extract_single(self, in_file : Path, in_text : str = None) -> np.ndarray:
         if in_text:
             text = in_text
         else:
@@ -174,7 +174,13 @@ class FeatureExtractionTool(object):
         # text_tokens = self.text_extractor.tokenize(text)
         return text_result
 
-    def __aligned_extract_single(self, align_result, word_ids, audio_result=None, video_result=None):
+    def _aligned_extract_single(
+        self, 
+        align_result : list[dict], 
+        word_ids : list[int], 
+        audio_result : np.ndarray = None, 
+        video_result : np.ndarray = None
+    ) -> tuple[np.ndarray]:
         word_count = len(align_result)
         if audio_result is not None:
             audio_timestamp = self.audio_extractor.get_timestamps()
@@ -230,7 +236,7 @@ class FeatureExtractionTool(object):
             aligned_video_result = None
         return aligned_audio_result, aligned_video_result
     
-    def __read_label_file(self, dataset_name, dataset_root_dir, dataset_dir):
+    def _read_label_file(self, dataset_name, dataset_root_dir, dataset_dir):
         # Locate and read label.csv file
         assert dataset_name is not None or dataset_dir is not None, "Either 'dataset_name' or 'dataset_dir' must be specified."
         dataset_dir = Path(dataset_dir) if dataset_dir else None
@@ -267,7 +273,7 @@ class FeatureExtractionTool(object):
             )
             return label_df, label_file.parent, dataset_name, dataset_config
 
-    def __padding(self, feature, MAX_LEN, value='zero', location='end'):
+    def _padding(self, feature, MAX_LEN, value='zero', location='end'):
         """
         Parameters:
             mode: 
@@ -292,7 +298,7 @@ class FeatureExtractionTool(object):
                   np.concatenate((feature, pad), axis=0)
         return feature
 
-    def __paddingSequence(self, sequences, value, location):
+    def _paddingSequence(self, sequences, value, location):
         """
         Pad features to the same length according to the mean length of the features.
         """
@@ -303,10 +309,10 @@ class FeatureExtractionTool(object):
         final_sequence = np.zeros([len(sequences), final_length, feature_dim])
         for i, s in enumerate(sequences):
             if len(s) != 0:
-                final_sequence[i] = self.__padding(s, final_length, value, location)
+                final_sequence[i] = self._padding(s, final_length, value, location)
         return final_sequence, final_length
 
-    def __collate_fn(self, batch):
+    def _collate_fn(self, batch):
         res = None
         for b in batch: # need to iterate through batch in case the first sample is bad(None)
             if b is not None:
@@ -321,8 +327,7 @@ class FeatureExtractionTool(object):
                 res[k].append(v)
         return res
 
-    def __save_result(self, result, out_file):
-        out_file = Path(out_file)
+    def _save_result(self, result: dict, out_file : Path):
         if out_file.exists():
             out_file_alt = out_file.parent / (out_file.stem + '_' + str(int(time.time())) + '.pkl')
             self.logger.warning(f"Output file '{out_file}' already exists. Saving to '{out_file_alt}' instead.")
@@ -332,14 +337,14 @@ class FeatureExtractionTool(object):
             pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
         self.logger.info(f"Feature file saved: '{out_file}'.")
     
-    def __save_tmp_result(self, tmp_res, out_file):
+    def _save_tmp_result(self, tmp_res, out_file):
         pass
 
-    def __load_tmp_result(self, tmp_res_file):
+    def _load_tmp_result(self, tmp_res_file):
         pass
 
-    def __remove_tmp_folder(self, tmp_dir):
-        if Path(tmp_dir).exists():
+    def _remove_tmp_folder(self, tmp_dir : Path) -> None:
+        if tmp_dir.exists():
             shutil.rmtree(tmp_dir)
 
     def run_single(
@@ -348,7 +353,8 @@ class FeatureExtractionTool(object):
         out_file : Path | str = None, 
         text : str = None, 
         text_file : Path | str = None, 
-        return_type : str = 'np'):
+        return_type : str = 'np'
+    ) -> dict:
         """
         Extract features from single file.
 
@@ -364,13 +370,16 @@ class FeatureExtractionTool(object):
             final_result: dictionary of extracted features.
         """
         try:
-            self.__init_extractors()
+            self._init_extractors()
+            in_file = Path(in_file)
+            if out_file:
+                out_file = Path(out_file)
             self.logger.info(f"Extracting features from '{in_file}'.")
             final_result = {}
             if 'audio' in self.config:
-                audio_result = self.__audio_extract_single(in_file, keep_tmp_file=True)
+                audio_result = self._audio_extract_single(in_file, keep_tmp_file=True)
             if 'video' in self.config:
-                video_result = self.__video_extract_single(in_file)
+                video_result = self._video_extract_single(in_file)
             if 'align' in self.config:
                 assert 'audio' in self.config or 'video' in self.config
                 assert 'text' in self.config, "Text feature is required for alignment. Please add 'text' section in config."
@@ -384,11 +393,11 @@ class FeatureExtractionTool(object):
                     text = text if text is not None else open(text_file).read().strip()
                     align_result = self.aligner.align_with_transcript(in_file, text)
                     word_ids = self.text_extractor.get_word_ids(text)
-                    audio_result, video_result = self.__aligned_extract_single(
+                    audio_result, video_result = self._aligned_extract_single(
                         align_result, word_ids, audio_result, video_result
                     )
             if 'text' in self.config:
-                text_result = self.__text_extract_single(None, text)
+                text_result = self._text_extract_single(None, text)
             if 'align' in self.config:
                 # verify aligned sequence length
                 if 'audio' in self.config:
@@ -416,16 +425,30 @@ class FeatureExtractionTool(object):
                 raise ValueError(f"Invalid return type '{return_type}'.")
             # save result
             if out_file:
-                self.__save_result(final_result, out_file)
+                self._save_result(final_result, out_file)
             return final_result
         except Exception as e:
             self.logger.exception("An Error Occured:")
             self.logger.debug("Removing temporary files.")
-            self.__remove_tmp_folder(self.tmp_dir)
+            self._remove_tmp_folder(self.tmp_dir)
             raise e
 
-    def run_dataset(self, dataset_name=None, dataset_root_dir=None, dataset_dir=None, out_file=None, return_type='np', num_workers=4,
-                    batch_size=32, skip_bad_data=True, padding_value='zero', padding_location='end', face_detection_failure='skip', progress_q=None, task_id=None):
+    def run_dataset(
+        self, 
+        dataset_name : Path | str = None, 
+        dataset_root_dir : Path | str = None, 
+        dataset_dir : Path | str = None, 
+        out_file : Path | str = None, 
+        return_type : str = 'np', 
+        num_workers : int = 4,
+        batch_size : int = 32, 
+        skip_bad_data : bool = True, 
+        padding_value : str = 'zero', 
+        padding_location : str = 'end', 
+        face_detection_failure : str = 'skip', 
+        progress_q : Queue = None, 
+        task_id : int = None
+    ) -> dict:
         """
         Extract features from dataset and save in MMSA compatible format.
 
@@ -446,16 +469,16 @@ class FeatureExtractionTool(object):
         """
         # TODO: add database operation for M-SENA
         try:
-            self.label_df, self.dataset_dir, self.dataset_name, self.dataset_config = \
-                self.__read_label_file(dataset_name, dataset_root_dir, dataset_dir)
+            label_df, dataset_dir, dataset_name, dataset_config = \
+                self._read_label_file(dataset_name, dataset_root_dir, dataset_dir)
             
-            self.logger.info(f"Extracting features from '{self.dataset_name}' dataset.")
-            self.logger.info(f"Dataset directory: '{self.dataset_dir}'")
+            self.logger.info(f"Extracting features from '{dataset_name}' dataset.")
+            self.logger.info(f"Dataset directory: '{dataset_dir}'")
 
-            self.report = None
-            if type(progress_q) == multiprocessing.queues.Queue and task_id is not None:
-                self.report = {'task_id': task_id, 'msg': 'Preparing', 'processed': 0, 'total': 0}
-                progress_q.put(self.report)
+            report = None
+            if type(progress_q) == Queue and task_id is not None:
+                report = {'task_id': task_id, 'msg': 'Preparing', 'processed': 0, 'total': 0}
+                progress_q.put(report)
 
             data = {
                 "id": [], 
@@ -477,34 +500,34 @@ class FeatureExtractionTool(object):
 
             dataloader = DataLoader(
                 FET_Dataset(
-                    self.label_df, self.dataset_dir, self.dataset_name,
-                    self.config, self.dataset_config, self.tmp_dir, ignore_error=skip_bad_data
+                    label_df, dataset_dir, dataset_name,
+                    self.config, dataset_config, self.tmp_dir, ignore_error=skip_bad_data
                 ),
                 batch_size=batch_size,
                 num_workers=num_workers,
                 shuffle=False,
-                collate_fn=self.__collate_fn,
+                collate_fn=self._collate_fn,
                 # multiprocessing_context='spawn'
                 # Using 'spawn' instead of 'fork' lead to more errors
                 # Pytorch dataloader currently does not support cuda multiprocessing
                 # Watch https://github.com/pytorch/pytorch/issues/41292 for updates
                 # Currently only cpu is supported for dataset feature extraction
             )
-            if self.report is not None:
-                self.report['msg'] = 'Processing'
-                self.report['total'] = len(dataloader)
-                progress_q.put(self.report)
+            if report is not None:
+                report['msg'] = 'Processing'
+                report['total'] = len(dataloader)
+                progress_q.put(report)
             for i, batch_data in enumerate(tqdm(dataloader)):
                 if batch_data is None: # if all samples in this batch are bad(None), skip the batch
                     continue
                 for k, v in batch_data.items():
                     data[k].extend(v)
-                if self.report is not None:
-                    self.report['processed'] = i + 1
-                    progress_q.put(self.report)
-            if self.report is not None:
-                self.report['msg'] = 'Finalizing'
-                progress_q.put(self.report)
+                if report is not None:
+                    report['processed'] = i + 1
+                    progress_q.put(report)
+            if report is not None:
+                report['msg'] = 'Finalizing'
+                progress_q.put(report)
             
             # remove unimodal labels if not exist
             for key in ['regression_labels_A', 'regression_labels_V', 'regression_labels_T']:
@@ -517,7 +540,7 @@ class FeatureExtractionTool(object):
             # padding features
             for item in ['audio', 'vision', 'text', 'text_bert']:
                 if item in data:
-                    data[item], final_length = self.__paddingSequence(data[item], padding_value, padding_location)
+                    data[item], final_length = self._paddingSequence(data[item], padding_value, padding_location)
                     if f"{item}_lengths" in data:
                         for i, length in enumerate(data[f"{item}_lengths"]):
                             if length > final_length:
@@ -550,25 +573,27 @@ class FeatureExtractionTool(object):
                             data[mode][key] = torch.from_numpy(data[mode][key])
             # save result
             if out_file is None:
-                out_file = self.dataset_dir / 'feature.pkl'
-            self.__save_result(data, out_file)
+                out_file = dataset_dir / 'feature.pkl'
+            else:
+                out_file = Path(out_file)
+            self._save_result(data, out_file)
             self.logger.info(f"Feature extraction complete!")
-            if self.report is not None:
-                self.report['msg'] = 'Finished'
-                progress_q.put(self.report)
+            if report is not None:
+                report['msg'] = 'Finished'
+                progress_q.put(report)
             return data
         except KeyboardInterrupt:
             self.logger.info("User aborted feature extraction!")
-            self.__remove_tmp_folder(self.tmp_dir)
-            if self.report is not None:
-                self.report['msg'] = 'Terminated'
-                progress_q.put(self.report)
+            self._remove_tmp_folder(self.tmp_dir)
+            if report is not None:
+                report['msg'] = 'Terminated'
+                progress_q.put(report)
         except Exception as e:
             self.logger.exception("An Error Occured:")
             self.logger.info("Removing temporary files.")
-            self.__remove_tmp_folder(self.tmp_dir)
-            if self.report is not None:
-                self.report['msg'] = 'Error'
-                progress_q.put(self.report)
+            self._remove_tmp_folder(self.tmp_dir)
+            if report is not None:
+                report['msg'] = 'Error'
+                progress_q.put(report)
             raise e
 

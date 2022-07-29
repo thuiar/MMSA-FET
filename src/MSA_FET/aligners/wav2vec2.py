@@ -1,20 +1,22 @@
-from typing import List
+import logging
+from pathlib import Path
 
 import ctc_segmentation
-import numpy as np
 import librosa
+import numpy as np
 import torch
 from transformers import (Wav2Vec2CTCTokenizer, Wav2Vec2ForCTC,
                           Wav2Vec2Processor)
 
+from .base_aligner import BaseAligner
+
 __all__ = ['Wav2Vec2Aligner']
 
-class Wav2Vec2Aligner(object):
-    def __init__(self, config, logger) -> None:
+class Wav2Vec2Aligner(BaseAligner):
+    def __init__(self, config : dict, logger : logging.Logger) -> None:
         try:
             logger.info("Initializing Wav2vec2 Aligner...")
-            self.logger = logger
-            self.config = config
+            super().__init__(config, logger)
             self.model_name = config['args']['model_name']
             assert self.model_name, "config `args.model_name` is not set"
 
@@ -28,7 +30,7 @@ class Wav2Vec2Aligner(object):
             logger.error("Failed to initialize Wav2Vec2Aligner.")
             raise e
 
-    def align_with_transcript(self, audio_file, transcript):
+    def align_with_transcript(self, audio_file : Path | str, transcript : str) -> list[dict]:
         # Run prediction, get logits and probs
         audio, _ = librosa.load(audio_file, sr=self.sample_rate)
         features = self.processor(
@@ -49,7 +51,7 @@ class Wav2Vec2Aligner(object):
         tokens = []
         for transcript in transcripts:
             assert len(transcript) > 0
-            tok_ids = self.tokenizer(transcript.replace("\n"," ").lower())['input_ids']
+            tok_ids = self.tokenizer(transcript.lower())['input_ids']
             tok_ids = np.array(tok_ids,dtype=np.int32)
             tokens.append(tok_ids[tok_ids != unk_id])
         
@@ -63,7 +65,7 @@ class Wav2Vec2Aligner(object):
         segments = ctc_segmentation.determine_utterance_segments(config, utt_begin_indices, char_probs, timings, transcripts)
         return [{"text" : t, "start" : p[0], "end" : p[1], "conf" : np.exp(p[2])} for t,p in zip(transcripts, segments)]
 
-    def do_asr_and_align(self, audio_file):
+    def do_asr_and_align(self, audio_file : Path | str) -> list[dict]:
         # Run ASR, get transcripts
         audio, _ = librosa.load(audio_file, sr=self.sample_rate)
         features = self.processor(
@@ -92,5 +94,5 @@ class Wav2Vec2Aligner(object):
         segments = ctc_segmentation.determine_utterance_segments(config, utt_begin_indices, char_probs, timings, transcripts)
         return [{"text" : w, "start" : p[0], "end" : p[1], "conf" : p[2]} for w,p in zip(transcripts, segments)]
     
-    def get_asr_result(self):
+    def get_asr_result(self) -> str:
         return self.asr_text
