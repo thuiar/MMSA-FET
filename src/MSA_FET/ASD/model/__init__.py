@@ -1,2 +1,2 @@
 from .face_detector import S3FD
-from .talknet_model import talkNetModel
+from .talkNet_model import talkNetModel
