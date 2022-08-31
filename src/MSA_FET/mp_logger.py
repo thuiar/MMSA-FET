@@ -9,6 +9,7 @@ def init_log_worker(queue, name='FET-Subprocess'):
     logger = logging.getLogger(name)
     logger.addHandler(qh)
     logger.setLevel(logging.DEBUG)
+    logger.propagate = False
     logger.debug("Logger initialized.")
     return logger
     
@@ -32,5 +33,5 @@ def init_log_listener(
         datefmt = '%Y-%m-%d %H:%M:%S'
     )
     ch.setFormatter(ch_formatter)
-    listener = QueueListener(queue, ch)
+    listener = QueueListener(queue, ch, fh)
     return listener

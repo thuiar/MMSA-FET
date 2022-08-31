@@ -123,8 +123,8 @@ def extract_one(row):
         return res
     except Exception as e:
         logger.error(f'An error occurred while extracting features for video {video_id} clip {clip_id}')
-        logger.error(f'Ignore error and continue, see log file for details.')
-        logger.debug(str(e))
+        logger.error(f'Ignore error and continue, see log for details.')
+        logger.exception(e)
         return None
 
 def extract_video(video_path, video_id):
