@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from .main import FeatureExtractionTool
+from .single import FeatureExtractionTool
 from .install import download_missing, force_redownload
 
 
