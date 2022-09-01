@@ -378,6 +378,7 @@ def run_dataset(
     try:
         label_df, dataset_dir, dataset_name, dataset_config = \
             read_label_file(dataset_name, dataset_root_dir, dataset_dir)
+        error_df = pd.DataFrame()
         
         logger.info(f"Extracting features from '{dataset_name}' dataset.")
         logger.info(f"Dataset directory: '{dataset_dir}'")
@@ -424,8 +425,8 @@ def run_dataset(
             progress_q.put(report)
         
         for result in (pbar := tqdm(pool.imap_unordered(extract_one, label_df.iterrows(), chunksize=5), total=len(label_df))):
-            if result is None:
-                continue
+            if type(result) is pd.Series:
+                error_df = pd.concat([error_df, result.to_frame().T])
             for k, v in result.items():
                 data[k].append(v)
             if report is not None:
@@ -487,6 +488,7 @@ def run_dataset(
         else:
             out_file = Path(out_file)
         save_result(data, out_file)
+        error_df.to_csv(out_file.parent / "error.csv")
         logger.info(f"Feature extraction complete!")
         if report is not None:
             report['msg'] = 'Finished'
