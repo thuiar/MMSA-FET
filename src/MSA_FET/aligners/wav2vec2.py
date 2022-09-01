@@ -44,7 +44,7 @@ class Wav2Vec2Aligner(BaseAligner):
             probs = torch.nn.functional.log_softmax(logits,dim=-1)
 
         # Tokenize transcripts
-        transcripts = transcript.split(" ")
+        transcripts = transcript.split()
         vocab = self.tokenizer.get_vocab()
         inv_vocab = {v:k for k,v in vocab.items()}
         unk_id = vocab["<unk>"]
