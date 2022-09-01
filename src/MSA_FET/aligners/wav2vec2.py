@@ -80,7 +80,7 @@ class Wav2Vec2Aligner(BaseAligner):
 
         predicted_ids = torch.argmax(logits, dim=-1)
         self.asr_text = self.processor.decode(predicted_ids)
-        transcripts = self.asr_text.split(" ")
+        transcripts = self.asr_text.split()
 
         # Do align
         vocab = self.tokenizer.get_vocab()
