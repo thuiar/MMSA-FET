@@ -125,7 +125,7 @@ def extract_one(row):
         logger.error(f'An error occurred while extracting features for video {video_id} clip {clip_id}')
         logger.error(f'Ignore error and continue, see log for details.')
         logger.exception(e)
-        return None
+        return row
 
 def extract_video(video_path, video_id):
     logger = logging.getLogger("FET-Subprocess")
@@ -427,6 +427,7 @@ def run_dataset(
         for result in (pbar := tqdm(pool.imap_unordered(extract_one, label_df.iterrows(), chunksize=5), total=len(label_df))):
             if type(result) is pd.Series:
                 error_df = pd.concat([error_df, result.to_frame().T])
+                continue
             for k, v in result.items():
                 data[k].append(v)
             if report is not None:
