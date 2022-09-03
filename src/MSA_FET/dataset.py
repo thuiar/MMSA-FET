@@ -120,6 +120,8 @@ def extract_one(row):
             )
         assert feature_A.shape[0] == feature_T.shape[0]
         assert feature_V.shape[0] == feature_T.shape[0]
+        res['vision'] = feature_V
+        res['audio'] = feature_A
         return res
     except Exception as e:
         logger.error(f'An error occurred while extracting features for video {video_id} clip {clip_id}')
@@ -351,6 +353,7 @@ def run_dataset(
     """
     # TODO: Batch processing to accelerate GPU models
     # TODO: Select multiple gpus
+    # TODO: Type hints for all functions
     # TODO: add database operation for M-SENA
     Path(tmp_dir).mkdir(parents=True, exist_ok=True)
     Path(log_dir).mkdir(parents=True, exist_ok=True)
@@ -395,8 +398,8 @@ def run_dataset(
             "raw_text": [],
             "text": [],
             "text_bert": [],
-            "audio_lengths": [],
-            "vision_lengths": [],
+            "audio_lengths": [], # not included in aligned features
+            "vision_lengths": [], # not included in aligned features
             "annotations": [],
             # "classification_labels": [],  # no longer supported by MMSA
             "regression_labels": [],
@@ -449,6 +452,10 @@ def run_dataset(
         for key in ['audio', 'vision', 'text', 'text_bert', 'audio_lengths', 'vision_lengths']:
             if len(data[key]) == 0:
                 data.pop(key)
+        # remove lengths for aligned feature
+        if config.get('align'):
+            data.pop("vision_lengths")
+            data.pop("audio_lengths")
         # padding features
         for item in ['audio', 'vision', 'text', 'text_bert']:
             if item in data:
