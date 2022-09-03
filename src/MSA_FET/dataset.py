@@ -501,6 +501,7 @@ def run_dataset(
         if report is not None:
             report['msg'] = 'Finished'
             progress_q.put(report)
+        log_listener.stop()
         return data
     except KeyboardInterrupt:
         logger.info("User aborted feature extraction!")
@@ -511,6 +512,7 @@ def run_dataset(
         if report is not None:
             report['msg'] = 'Terminated'
             progress_q.put(report)
+        log_listener.stop()
     except Exception:
         logger.exception("An Error Occured:")
         pool.terminate()
@@ -520,4 +522,5 @@ def run_dataset(
         if report is not None:
             report['msg'] = 'Error'
             progress_q.put(report)
+        log_listener.stop()
 
