@@ -208,6 +208,8 @@ def extract_align(align_result, word_ids, feature_A, feature_V):
             if value >= end:
                 end_idx_v = index
                 break
+        if end_idx_v == 0 and start_idx_v > 0:
+            end_idx_v = video_timestamp.shape[0] - 1
         tmp_result.append(
             np.mean(feature_V[start_idx_v:end_idx_v], axis=0)
         )
