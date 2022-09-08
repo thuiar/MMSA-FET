@@ -40,6 +40,7 @@ class FeatureExtractionTool(object):
         [ ] GPU support in `run_dataset()`. Maybe discard Dataset and Dataloader is a good idea. Just implement multiprocessing pool manually.
         [ ] Clean up tmp folder before run_single.
         [ ] Better error logs, optimize stack traces to avoid duplicate messages.
+        [ ] Set gpu_id during init, not in config.
     """
 
     def __init__(
@@ -172,8 +173,8 @@ class FeatureExtractionTool(object):
         else:
             text = self.text_extractor.load_text_from_file(in_file)
         text_result = self.text_extractor.extract(text)
-        # text_tokens = self.text_extractor.tokenize(text)
-        return text_result
+        text_tokens = self.text_extractor.tokenize(text)
+        return text_result, text_tokens
 
     def _aligned_extract_single(
         self, 
@@ -301,7 +302,7 @@ class FeatureExtractionTool(object):
                         align_result, word_ids, audio_result, video_result
                     )
             if 'text' in self.config:
-                text_result = self._text_extract_single(None, text)
+                text_result, text_tokens = self._text_extract_single(None, text)
             if 'align' in self.config:
                 # verify aligned sequence length
                 if 'audio' in self.config:
@@ -313,16 +314,18 @@ class FeatureExtractionTool(object):
                 if 'audio' in self.config:
                     final_result['audio'] = torch.from_numpy(audio_result)
                 if 'video' in self.config:
-                    final_result['video'] = torch.from_numpy(video_result)
+                    final_result['vision'] = torch.from_numpy(video_result)
                 if 'text' in self.config:
                     final_result['text'] = torch.from_numpy(text_result)
+                    final_result['text_bert'] = torch.from_numpy(text_tokens)
             elif return_type == 'np':
                 if 'audio' in self.config:
                     final_result['audio'] = audio_result
                 if 'video' in self.config:
-                    final_result['video'] = video_result
+                    final_result['vision'] = video_result
                 if 'text' in self.config:
                     final_result['text'] = text_result
+                    final_result['text_bert'] = text_tokens
             elif return_type == 'df':
                 pass
             else:
