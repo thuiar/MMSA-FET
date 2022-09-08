@@ -57,19 +57,18 @@ def init_pool(extractors, config, log_queue, temp_dir, work_dir):
     global dataset_dir
     dataset_dir = work_dir
     global audio_extractor
-    audio_extractor = extractors['audio'](config['audio'], logger)
+    audio_extractor = extractors['audio'](config['audio'], logger) if extractors['audio'] else None
     global video_extractor
-    video_extractor = extractors['video'](config['video'], logger)
+    video_extractor = extractors['video'](config['video'], logger) if extractors['video'] else None
     global text_extractor
-    text_extractor = extractors['text'](config['text'], logger)
-    if extractors['align'] is not None:
-        global aligner
-        aligner = extractors['align'](config['align'], logger)
+    text_extractor = extractors['text'](config['text'], logger) if extractors['text'] else None
+    global aligner
+    aligner = extractors['align'](config['align'], logger) if extractors['align'] else None
     
     logger.info("Subprocess initialized.")
 
 @handle_ctrl_c
-def extract_one(row):
+def extract_one(row : pd.Series) -> dict:
     logger = logging.getLogger("FET-Subprocess")
     # use global variables in child process.
     global dataset_dir, tmp_dir, cfg
@@ -95,33 +94,36 @@ def extract_one(row):
         video_path = Path(dataset_dir) / 'Raw' / video_id / (clip_id + '.mp4') # TODO: file extension should be configurable
         assert video_path.exists(), f"Video file {video_path} does not exist"
         # video
-        feature_V = extract_video(video_path, tmp_id)
-        seq_V = feature_V.shape[0]
-        res['vision'] = feature_V
-        res['vision_lengths'] = seq_V
+        if video_extractor:
+            feature_V = extract_video(video_path, tmp_id)
+            seq_V = feature_V.shape[0]
+            res['vision'] = feature_V
+            res['vision_lengths'] = seq_V
         # audio
-        feature_A = extract_audio(video_path, tmp_id)
-        seq_A = feature_A.shape[0]
-        res['audio'] = feature_A
-        res['audio_lengths'] = seq_A
+        if audio_extractor:
+            feature_A = extract_audio(video_path, tmp_id)
+            seq_A = feature_A.shape[0]
+            res['audio'] = feature_A
+            res['audio_lengths'] = seq_A
         # text
-        feature_T = extract_text(text)
-        text_bert = preprocess_text(text)
-        res['text'] = feature_T
-        res['text_bert'] = text_bert
+        if text_extractor:
+            feature_T = extract_text(text)
+            text_bert = preprocess_text(text)
+            res['text'] = feature_T
+            res['text_bert'] = text_bert
         if type(res['text_bert']) != np.ndarray:
             res.pop('text_bert')
         # align
-        if 'align' in cfg:
+        if aligner:
             align_result = aligner.align_with_transcript(video_path, text)
             word_ids = text_extractor.get_word_ids(text)
             feature_A, feature_V = extract_align(
                 align_result, word_ids, feature_A, feature_V
             )
-        assert feature_A.shape[0] == feature_T.shape[0]
-        assert feature_V.shape[0] == feature_T.shape[0]
-        res['vision'] = feature_V
-        res['audio'] = feature_A
+            assert feature_A.shape[0] == feature_T.shape[0]
+            assert feature_V.shape[0] == feature_T.shape[0]
+            res['vision'] = feature_V
+            res['audio'] = feature_A
         return res
     except Exception as e:
         logger.error(f'An error occurred while extracting features for video {video_id} clip {clip_id}')
@@ -221,9 +223,6 @@ def extract_align(align_result, word_ids, feature_A, feature_V):
             aligned_feature_V.append(tmp_result[i])
     aligned_feature_V = np.asarray(aligned_feature_V)
     return aligned_feature_A, aligned_feature_V
-
-def process_batch():
-    pass
 
 def read_label_file(dataset_name, dataset_root_dir, dataset_dir):
     # Locate and read label.csv file
@@ -351,9 +350,8 @@ def run_dataset(
         progress_q: multiprocessing queue for progress reporting with M-SENA.
         task_id: task id for M-SENA.
     """
-    # TODO: Batch processing to accelerate GPU models
     # TODO: Select multiple gpus
-    # TODO: Type hints for all functions
+    # TODO: Batch processing to accelerate GPU models
     # TODO: add database operation for M-SENA
     Path(tmp_dir).mkdir(parents=True, exist_ok=True)
     Path(log_dir).mkdir(parents=True, exist_ok=True)
