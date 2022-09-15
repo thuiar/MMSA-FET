@@ -50,7 +50,7 @@ def get_codec_name(file : Path, mode : str = 'audio') -> str:
             return track['codec_name']
 
 
-def get_video_size(file : Path) -> tuple(int, int):
+def get_video_size(file : Path) -> tuple[int, int]:
     """
     Get height and width of video file.
 
@@ -97,9 +97,11 @@ def ffmpeg_extract(in_file : Path, out_path : Path, mode : str = 'audio', fps : 
             raise RuntimeError("ffmpeg", out, err)
 
 
-def ffmpeg_extract_fast(in_file : Path, mode : str = 'audio', fps : int = 10) -> tuple(np.ndarray, int) | tuple(np.ndarray, int, int):
+def ffmpeg_extract_fast(in_file : Path, mode : str = 'audio', fps : int = 10) -> tuple[np.ndarray, int] | tuple[np.ndarray, int, int]:
     """
     Extract audio/image from input video file and return the numpy array.
+
+    This function runs completely in memory without any disk IO, thus is faster than `ffmpeg_extract`.
 
     Args:
         in_file: Path to the input file.
@@ -115,6 +117,7 @@ def ffmpeg_extract_fast(in_file : Path, mode : str = 'audio', fps : int = 10) ->
     assert mode in ['audio', 'image'], "Parameter 'mode' must be 'audio' or 'image'."
     
     if mode == 'audio':
+        # raw mono audio with original sample rate
         args = ['ffmpeg', '-i', str(in_file), '-vn', '-ac', '1', '-acodec', 'pcm_s16le', '-f', 'wav', 'pipe:']
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
@@ -123,6 +126,7 @@ def ffmpeg_extract_fast(in_file : Path, mode : str = 'audio', fps : int = 10) ->
         data, sr = sf.read(io.BytesIO(out))
         return data, sr
     elif mode == 'image':
+        # extract raw RGB images with given fps
         height, width = get_video_size(in_file)
         args = ['ffmpeg', '-i', str(in_file), '-vf', f'fps={fps}', '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:']
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

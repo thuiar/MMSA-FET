@@ -7,8 +7,6 @@ from .text.bert import bertExtractor
 from .text.roberta import robertaExtractor
 from .text.glove import gloveExtractor
 
-__all__ = ['AUDIO_EXTRACTOR_MAP', 'VIDEO_EXTRACTOR_MAP', 'TEXT_EXTRACTOR_MAP']
-
 AUDIO_EXTRACTOR_MAP = {
     "librosa": librosaExtractor,
     "opensmile": opensmileExtractor,

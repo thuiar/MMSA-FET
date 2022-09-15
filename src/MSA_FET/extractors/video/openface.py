@@ -1,6 +1,7 @@
-from glob import glob
 import os
 import platform
+import subprocess
+from glob import glob
 from pathlib import Path
 
 import numpy as np
@@ -35,7 +36,7 @@ class openfaceExtractor(baseVideoExtractor):
             if not self.tool.is_file():
                 raise FileNotFoundError("OpenFace tool not found.")
         except Exception as e:
-            self.logger.error("Failed to initialize mediapipeExtractor.")
+            self.logger.error("Failed to initialize OpenFaceExtractor.")
             raise e
 
     def _parse_args(self, args):
@@ -106,3 +107,17 @@ class openfaceExtractor(baseVideoExtractor):
     def get_timestamps(self):
         fps = self.config['fps']
         return np.arange(0, self.num_imgs / fps, 1 / fps)
+
+    @staticmethod
+    def get_annotated_video(input : str, output : str) -> bytes:
+        try:
+            tool = Path(__file__).parent.parent.parent / "exts" / "OpenFace" / "FeatureExtraction"
+            cmd = str(tool) + f" -f {input} -of {output} -oc avc1 -tracked" # default settings
+            args = cmd.split()
+            p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = p.communicate()
+            if p.returncode != 0: # BUG: OpenFace won't set return code >0 on error
+                raise RuntimeError("openface", out, err)
+            return out
+        except Exception as e:
+            raise e

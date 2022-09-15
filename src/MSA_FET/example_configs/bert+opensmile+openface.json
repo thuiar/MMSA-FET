@@ -1,7 +1,7 @@
 {
   "text": {
     "model": "bert",
-    "device": "cpu",
+    "device": "cuda:3",
     "pretrained": "bert-base-uncased",
     "args": {}
   },

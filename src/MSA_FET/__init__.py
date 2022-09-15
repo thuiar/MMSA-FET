@@ -1,3 +1,3 @@
-from .main import FeatureExtractionTool
-from .extractors import *
+from .single import FeatureExtractionTool
+from .dataset import run_dataset
 from .utils import *
