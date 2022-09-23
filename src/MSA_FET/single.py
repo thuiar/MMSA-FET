@@ -36,8 +36,6 @@ class FeatureExtractionTool(object):
         [ ] Add csv/dataframe output format.
         [ ] Support specifying existing feature files, modify only some of the modalities.
         [ ] Implement resume function for run_dataset().
-        [ ] Forced Alignment & Aligned Feature Extraction.
-        [ ] GPU support in `run_dataset()`. Maybe discard Dataset and Dataloader is a good idea. Just implement multiprocessing pool manually.
         [ ] Clean up tmp folder before run_single.
         [ ] Better error logs, optimize stack traces to avoid duplicate messages.
         [ ] Set gpu_id during init, not in config.
@@ -174,6 +172,7 @@ class FeatureExtractionTool(object):
             text = self.text_extractor.load_text_from_file(in_file)
         text_result = self.text_extractor.extract(text)
         text_tokens = self.text_extractor.tokenize(text)
+        text_tokens = text_tokens.transpose(0, 2, 1)
         return text_result, text_tokens
 
     def _aligned_extract_single(
