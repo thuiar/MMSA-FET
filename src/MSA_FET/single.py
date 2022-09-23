@@ -172,7 +172,7 @@ class FeatureExtractionTool(object):
             text = self.text_extractor.load_text_from_file(in_file)
         text_result = self.text_extractor.extract(text)
         text_tokens = self.text_extractor.tokenize(text)
-        text_tokens = text_tokens.transpose(0, 2, 1)
+        text_tokens = text_tokens.transpose(0, 1)
         return text_result, text_tokens
 
     def _aligned_extract_single(
