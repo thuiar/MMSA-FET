@@ -92,6 +92,7 @@ class FeatureExtractionTool(object):
         self.video_extractor, self.audio_extractor, self.text_extractor, self.aligner = None, None, None, None
 
     def _set_logger(self, stream_level : int) -> None:
+        self.logger.handlers.clear()
         self.logger.setLevel(logging.DEBUG)
 
         fh = RotatingFileHandler(self.log_dir / 'MSA-FET.log', maxBytes=2e7, backupCount=2)
@@ -172,7 +173,7 @@ class FeatureExtractionTool(object):
             text = self.text_extractor.load_text_from_file(in_file)
         text_result = self.text_extractor.extract(text)
         text_tokens = self.text_extractor.tokenize(text)
-        text_tokens = text_tokens.transpose(0, 1)
+        text_tokens = text_tokens.transpose(1, 0)
         return text_result, text_tokens
 
     def _aligned_extract_single(
