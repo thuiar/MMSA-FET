@@ -18,11 +18,12 @@ class Wav2Vec2Aligner(BaseAligner):
             logger.info("Initializing Wav2vec2 Aligner...")
             super().__init__(config, logger)
             self.model_name = config['args']['model_name']
+            self.device = config['device']
             assert self.model_name, "config `args.model_name` is not set"
 
             self.processor = Wav2Vec2Processor.from_pretrained(self.model_name)
             self.tokenizer = Wav2Vec2CTCTokenizer.from_pretrained(self.model_name)
-            self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
+            self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name).to(self.device)
             self.sample_rate = 16000
             self.has_asr = True
             self.asr_text = None
@@ -39,6 +40,7 @@ class Wav2Vec2Aligner(BaseAligner):
             return_tensors="pt", 
             padding="longest"
         )
+        features = features.to(self.device)
         with torch.no_grad():
             logits = self.model(features.input_values).logits.cpu()[0]
             probs = torch.nn.functional.log_softmax(logits,dim=-1)

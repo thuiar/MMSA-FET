@@ -418,7 +418,7 @@ def run_dataset(
             "align": ALIGNER_MAP[config['align']['tool']] if config.get('align') else None
         }
 
-        pool = multiprocessing.get_context('spawn').Pool(
+        pool = mp_ctx.Pool(
             processes = num_workers,
             initializer=init_pool,
             initargs=(extractors, config, log_q, tmp_dir, dataset_dir)

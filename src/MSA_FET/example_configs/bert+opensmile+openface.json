@@ -1,7 +1,7 @@
 {
   "text": {
     "model": "bert",
-    "device": "cuda:3",
+    "device": "cuda",
     "pretrained": "bert-base-uncased",
     "args": {}
   },
@@ -17,7 +17,7 @@
   },
   "video": {
     "tool": "openface",
-    "fps": 10,
+    "fps": 30,
     "average_over": 1,
     "args": {
       "hogalign": false,
@@ -26,14 +26,15 @@
       "landmark_2D": true,
       "landmark_3D": false,
       "pdmparams": false,
-      "head_pose": true,
+      "head_pose": false,
       "action_units": true,
-      "gaze": true,
+      "gaze": false,
       "tracked": false
     }
   },
   "align": {
     "tool": "wav2vec",
+    "device": "cuda",
     "args": {
       "model_name": "jonatasgrosman/wav2vec2-large-xlsr-53-english"
     }
