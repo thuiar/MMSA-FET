@@ -43,7 +43,7 @@ $ python -m MSA_FET install
 
 MMSA-FET is fairly easy to use. You can either call API in python or use commandline interface. Below is a basic example using python APIs.
 
-> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded from [BaiduYunDisk](https://pan.baidu.com/s/1maIw13yINOco46d47KYhAg?pwd=3dcu) or [Google Drive](https://github.com/thuiar/MMSA-FET/wiki/Dataset-and-Structure#datasets).
+> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded from [BaiduYunDisk](https://pan.baidu.com/s/1U75smJMuCeiu5GCWgUeSag?pwd=t0d7) or [Google Drive](https://drive.google.com/drive/folders/1A2S4pqCHryGmiqnNSPLv7rEg63WvjCSk?usp=sharing).
 
 ```python
 from MSA_FET import FeatureExtractionTool
