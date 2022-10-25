@@ -43,23 +43,30 @@ $ python -m MSA_FET install
 
 MMSA-FET is fairly easy to use. You can either call API in python or use commandline interface. Below is a basic example using python APIs.
 
-> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded from [BaiduYunDisk](https://pan.baidu.com/s/14dDwya98MK4fFI0qn-ujhw?pwd=gsxk) or [Google Drive](https://drive.google.com/drive/folders/1A2S4pqCHryGmiqnNSPLv7rEg63WvjCSk?usp=sharing).
+> **Note:** To extract features for datasets, the datasets need to be organized in a specific file structure, and a `label.csv` file is needed. See [Dataset and Structure](https://github.com/FlameSky-S/MMSA-FET/wiki/Dataset-and-Structure) for details. Raw video files and label files for MOSI, MOSEI and CH-SIMS can be downloaded from [BaiduYunDisk](https://pan.baidu.com/s/1XmobKHUqnXciAm7hfnj2gg) `code: mfet` or [Google Drive](https://drive.google.com/drive/folders/1A2S4pqCHryGmiqnNSPLv7rEg63WvjCSk?usp=sharing).
 
 ```python
 from MSA_FET import FeatureExtractionTool
+from MSA_FET import run_dataset
 
 # initialize with default librosa config which only extracts audio features
-fet = FeatureExtractionTool("librosa")
+fet = FeatureExtractionTool("openface")
 
 # alternatively initialize with a custom config file
 fet = FeatureExtractionTool("custom_config.json")
 
 # extract features for single video
-feature = fet.run_single("input.mp4")
-print(feature)
+feature1 = fet.run_single("input1.mp4")
+print(feature1)
+feature2 = fet.run_single("input2.mp4")
 
 # extract for dataset & save features to file
-feature = fet.run_dataset(dataset_dir="~/MOSI", out_file="output/feature.pkl")
+run_dataset(
+    config = "aligned",
+    dataset_dir="~/MOSI", 
+    out_file="output/feature.pkl",
+    num_workers=4
+)
 ```
 
 The `custom_config.json` is the path to a custom config file, the format of which is introduced below.
@@ -72,6 +79,7 @@ MMSA-FET comes with a few example configs which can be used like below.
 
 ```python
 # Each supported tool has an example config
+fet = FeatureExtractionTool(config="aligned")
 fet = FeatureExtractionTool(config="librosa")
 fet = FeatureExtractionTool(config="opensmile")
 fet = FeatureExtractionTool(config="wav2vec")
@@ -186,3 +194,8 @@ fet = FeatureExtractionTool(config=config)
 
   Integrated from huggingface transformers. Detailed configurations can be found [here](https://github.com/FlameSky-S/MMSA-FET/wiki/Configurations#32-xlnet).
 
+### 4.4 Aligners
+
+- **Wav2vec CTC Aligner**
+
+  Using pretrained Wav2vec ASR model to generate timestamps for each word, then align video & audio with text. Currently only support English.
