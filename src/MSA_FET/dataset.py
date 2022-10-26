@@ -177,52 +177,31 @@ def preprocess_text(text):
 def extract_align(align_result, word_ids, feature_A, feature_V):
     word_count = len(align_result)
     audio_timestamp = audio_extractor.get_timestamps()
-    tmp_result = []
-    for word_result in align_result:
-        _, start, end, _ = word_result.values()
-        start_idx_a, end_idx_a = 0, 0
-        for index, value in enumerate(audio_timestamp):
-            if value <= start:
-                start_idx_a = index
-            if value >= end:
-                end_idx_a = index
-                break
-        if end_idx_a <= start_idx_a:
-            end_idx_a = start_idx_a + 1
-        tmp_result.append(
-            np.mean(feature_A[start_idx_a:end_idx_a], axis=0)
-        )
+    df = pd.DataFrame(align_result)
+    start = df['start'].values
+    end = df['end'].values
+    start_idx = np.searchsorted(audio_timestamp, start)
+    end_idx = np.searchsorted(audio_timestamp, end)
+    tmp_result = np.array([np.mean(feature_A[x:y], axis=0) for x, y in zip(start_idx, end_idx)])
     assert len(tmp_result) == word_count
     # align with text tokens, add zero padding or duplicate features
     aligned_feature_A = []
     for i in word_ids:
         if i is None:
-            aligned_feature_A.append(np.zeros(len(tmp_result[0])))
+            aligned_feature_A.append(np.zeros(tmp_result.shape[1]))
         else:
             aligned_feature_A.append(tmp_result[i])
     aligned_feature_A = np.asarray(aligned_feature_A)
     video_timestamp = video_extractor.get_timestamps()
-    tmp_result = []
-    for word_result in align_result:
-        _, start, end, _ = word_result.values()
-        start_idx_v, end_idx_v = 0, 0
-        for index, value in enumerate(video_timestamp):
-            if value <= start:
-                start_idx_v = index
-            if value >= end:
-                end_idx_v = index
-                break
-        if end_idx_v <= start_idx_v:
-            end_idx_v = start_idx_v + 1
-        tmp_result.append(
-            np.mean(feature_V[start_idx_v:end_idx_v], axis=0)
-        )
+    start_idx = np.searchsorted(video_timestamp, start)
+    end_idx = np.searchsorted(video_timestamp, end)
+    tmp_result = np.array([np.mean(feature_V[x:y], axis=0) for x, y in zip(start_idx, end_idx)])
     assert len(tmp_result) == word_count
     # align with text tokens, add zero padding or duplicate features
     aligned_feature_V = []
     for i in word_ids:
         if i is None:
-            aligned_feature_V.append(np.zeros(len(tmp_result[0])))
+            aligned_feature_V.append(np.zeros(tmp_result.shape[1]))
         else:
             aligned_feature_V.append(tmp_result[i])
     aligned_feature_V = np.asarray(aligned_feature_V)
@@ -339,8 +318,9 @@ def run_dataset(
     Extract features from dataset and save in MMSA compatible format.
 
     Parameters:
-        dataset_name: Name of dataset. Either 'dataset_name' or 'dataset_dir' must be specified.
-        dataset_root_dir: Root directory of dataset. If specified, will override 'dataset_root_dir' set when initializing MSA-FET.
+        config: Python dictionary of config, or path to a JSON file, or name of an example config.
+        dataset_name: [DEPRECATED] Name of dataset. Either 'dataset_name' or 'dataset_dir' must be specified.
+        dataset_root_dir: [DEPRECATED] Root directory of dataset. If specified, will override 'dataset_root_dir' set when initializing MSA-FET.
         dataset_dir: Path to dataset directory. If specified, will override 'dataset_name'. Either 'dataset_name' or 'dataset_dir' must be specified.
         out_file: Output feature file. If not specified, features will be saved under the dataset directory with the name 'feature.pkl'.
         return_type: 'pt' for pytorch tensor, 'np' for numpy array. Default: 'np'.

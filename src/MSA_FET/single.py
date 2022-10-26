@@ -9,6 +9,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 
 from .utils import *
@@ -112,7 +113,8 @@ class FeatureExtractionTool(object):
 
     def _init_extractors(self) -> None:
         from .aligners import ALIGNER_MAP
-        from .extractors import AUDIO_EXTRACTOR_MAP, VIDEO_EXTRACTOR_MAP, TEXT_EXTRACTOR_MAP
+        from .extractors import (AUDIO_EXTRACTOR_MAP, TEXT_EXTRACTOR_MAP,
+                                 VIDEO_EXTRACTOR_MAP)
         if 'audio' in self.config and self.audio_extractor is None:
             # self.logger.info(f"Initializing audio feature extractor...")
             audio_cfg = self.config['audio']
@@ -184,27 +186,20 @@ class FeatureExtractionTool(object):
         video_result : np.ndarray = None
     ) -> tuple[np.ndarray]:
         word_count = len(align_result)
+        df = pd.DataFrame(align_result)
+        start = df['start'].values
+        end = df['end'].values
         if audio_result is not None:
             audio_timestamp = self.audio_extractor.get_timestamps()
-            tmp_result = []
-            for word_result in align_result:
-                _, start, end, _ = word_result.values()
-                start_idx_a, end_idx_a = 0, 0
-                for index, value in enumerate(audio_timestamp):
-                    if value <= start:
-                        start_idx_a = index
-                    if value >= end:
-                        end_idx_a = index
-                        break
-                tmp_result.append(
-                    np.mean(audio_result[start_idx_a:end_idx_a], axis=0)
-                )
+            start_idx = np.searchsorted(audio_timestamp, start)
+            end_idx = np.searchsorted(audio_timestamp, end)
+            tmp_result = np.array([np.mean(audio_result[x:y], axis=0) for x, y in zip(start_idx, end_idx)])
             assert len(tmp_result) == word_count
             # align with text tokens, add zero padding or duplicate features
             aligned_audio_result = []
             for i in word_ids:
                 if i is None:
-                    aligned_audio_result.append(np.zeros(len(tmp_result[0])))
+                    aligned_audio_result.append(np.zeros(tmp_result.shape[1]))
                 else:
                     aligned_audio_result.append(tmp_result[i])
             aligned_audio_result = np.asarray(aligned_audio_result)
@@ -212,25 +207,15 @@ class FeatureExtractionTool(object):
             aligned_audio_result = None
         if video_result is not None:
             video_timestamp = self.video_extractor.get_timestamps()
-            tmp_result = []
-            for word_result in align_result:
-                _, start, end, _ = word_result.values()
-                start_idx_v, end_idx_v = 0, 0
-                for index, value in enumerate(video_timestamp):
-                    if value <= start:
-                        start_idx_v = index
-                    if value >= end:
-                        end_idx_v = index
-                        break
-                tmp_result.append(
-                    np.mean(video_result[start_idx_v:end_idx_v], axis=0)
-                )
+            start_idx = np.searchsorted(video_timestamp, start)
+            end_idx = np.searchsorted(video_timestamp, end)
+            tmp_result = np.array([np.mean(video_result[x:y], axis=0) for x, y in zip(start_idx, end_idx)])
             assert len(tmp_result) == word_count
             # align with text tokens, add zero padding or duplicate features
             aligned_video_result = []
             for i in word_ids:
                 if i is None:
-                    aligned_video_result.append(np.zeros(len(tmp_result[0])))
+                    aligned_video_result.append(np.zeros(tmp_result.shape[1]))
                 else:
                     aligned_video_result.append(tmp_result[i])
             aligned_video_result = np.asarray(aligned_video_result)
