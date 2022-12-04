@@ -33,10 +33,10 @@
     }
   },
   "align": {
-    "tool": "wav2vec",
-    "device": "cuda",
-    "args": {
-      "model_name": "jonatasgrosman/wav2vec2-large-xlsr-53-english"
-    }
+    "sr": 16000,
+    "language": "en-us",
+    "device": "cpu",
+    "has_transcript": true,
+    "model_download_dir": "/home/sharing/mhs/espnet_models"
   }
 }

@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from .aligners import *
+from .aligner import *
 from .ASD import run_ASD
 from .extractors import *
 from .mp_logger import *
@@ -395,7 +395,7 @@ def run_dataset(
             "audio": AUDIO_EXTRACTOR_MAP[config['audio']['tool']] if config.get('audio') else None,
             "video": VIDEO_EXTRACTOR_MAP[config['video']['tool']] if config.get('video') else None,
             "text": TEXT_EXTRACTOR_MAP[config['text']['model']] if config.get('text') else None,
-            "align": ALIGNER_MAP[config['align']['tool']] if config.get('align') else None
+            "align": Aligner[config['align']['tool']] if config.get('align') else None
         }
 
         pool = mp_ctx.Pool(

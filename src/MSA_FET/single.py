@@ -112,7 +112,7 @@ class FeatureExtractionTool(object):
         self.logger.addHandler(ch)
 
     def _init_extractors(self) -> None:
-        from .aligners import ALIGNER_MAP
+        from .aligner import Aligner
         from .extractors import (AUDIO_EXTRACTOR_MAP, TEXT_EXTRACTOR_MAP,
                                  VIDEO_EXTRACTOR_MAP)
         if 'audio' in self.config and self.audio_extractor is None:
@@ -132,7 +132,7 @@ class FeatureExtractionTool(object):
             self.text_extractor = TEXT_EXTRACTOR_MAP[extractor_name](text_cfg, self.logger)
         if 'align' in self.config and self.aligner is None:
             align_cfg = self.config['align']
-            self.aligner = ALIGNER_MAP[align_cfg['tool']](align_cfg, self.logger)
+            self.aligner = Aligner(align_cfg, self.logger)
     
     def _audio_extract_single(self, in_file : Path, keep_tmp_file : bool = False) -> np.ndarray:
         # extract audio from video file
@@ -274,18 +274,18 @@ class FeatureExtractionTool(object):
                 assert 'audio' in self.config or 'video' in self.config
                 assert 'text' in self.config, "Text feature is required for alignment. Please add 'text' section in config."
                 if text is None and text_file is None:
-                    if not self.aligner.has_asr:
+                    if self.aligner.has_transcript:
                         raise ValueError("Text file is not specified.")
                     self.logger.warning("Text file is not specified. Using ASR result.")
-                    align_result = self.aligner.do_asr_and_align(in_file)
+                    align_result = self.aligner.asr_and_align(in_file)
                     text = self.aligner.get_asr_result()
                 else:
                     text = text if text is not None else open(text_file).read().strip()
-                    align_result = self.aligner.align_with_transcript(in_file, text)
-                    word_ids = self.text_extractor.get_word_ids(text)
-                    audio_result, video_result = self._aligned_extract_single(
-                        align_result, word_ids, audio_result, video_result
-                    )
+                    align_result = self.aligner.align(in_file, text)
+                word_ids = self.text_extractor.get_word_ids(text)
+                audio_result, video_result = self._aligned_extract_single(
+                    align_result, word_ids, audio_result, video_result
+                )
             if 'text' in self.config:
                 text_result, text_tokens = self._text_extract_single(None, text)
             if 'align' in self.config:
