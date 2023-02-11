@@ -37,6 +37,6 @@
     "language": "en-us",
     "device": "cpu",
     "has_transcript": true,
-    "model_download_dir": "/home/sharing/mhs/espnet_models"
+    "model_download_dir": "default"
   }
 }

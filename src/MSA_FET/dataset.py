@@ -89,7 +89,7 @@ def extract_one(row : pd.Series) -> dict:
             'regression_labels_A': label_A,
             'regression_labels_V': label_V,
             'regression_labels_T': label_T,
-            'mode': mode
+            'mode': mode,
         }
         video_path = Path(dataset_dir) / 'Raw' / video_id / (clip_id + '.mp4') # TODO: file extension should be configurable
         assert video_path.exists(), f"Video file {video_path} does not exist"
@@ -124,6 +124,7 @@ def extract_one(row : pd.Series) -> dict:
             assert feature_V.shape[0] == feature_T.shape[0]
             res['vision'] = feature_V
             res['audio'] = feature_A
+            res['align'] = align_result
         return res
     except Exception as e:
         logger.error(f'An error occurred while extracting features for video {video_id} clip {clip_id}')
@@ -388,6 +389,7 @@ def run_dataset(
             'regression_labels_A': [],
             'regression_labels_V': [],
             'regression_labels_T': [],
+            'align': [],
             "mode": []
         }
 
@@ -438,6 +440,8 @@ def run_dataset(
         if config.get('align'):
             data.pop("vision_lengths")
             data.pop("audio_lengths")
+        else:
+            data.pop("align")
         # padding features
         for item in ['audio', 'vision', 'text', 'text_bert']:
             if item in data:
@@ -464,11 +468,14 @@ def run_dataset(
                 else:
                     final_data[mode][item] = data[item][indexes]
         data = final_data
+        data['config'] = config
         # convert labels to numpy array
 
         # convert to pytorch tensors
         if return_type == 'pt':
             for mode in data.keys():
+                if mode == 'config':
+                    continue
                 for key in ['audio', 'vision', 'text', 'text_bert']:
                     if key in data[mode]:
                         data[mode][key] = torch.from_numpy(data[mode][key])

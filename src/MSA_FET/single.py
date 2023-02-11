@@ -315,6 +315,11 @@ class FeatureExtractionTool(object):
                 pass
             else:
                 raise ValueError(f"Invalid return type '{return_type}'.")
+            # save configs
+            final_result['config'] = self.config
+            # save align results
+            if 'align' in self.config:
+                final_result['align'] = align_result
             # save result
             if out_file:
                 self._save_result(final_result, out_file)
